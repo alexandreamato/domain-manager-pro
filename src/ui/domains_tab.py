@@ -33,6 +33,7 @@ class DomainsTab:
         self.analyzing = False
         self.current_data = []
         self.sort_reverse = {}  # Controla direção de ordenação por coluna
+        self.current_sort_column = None  # Rastreia coluna atualmente ordenada
 
         # Cache de favicons
         self.favicon_cache = FaviconCache()
@@ -607,7 +608,7 @@ class DomainsTab:
         self._insert_domains_hierarchically(filtered_domains)
 
     def sort_column(self, column):
-        """Ordena tabela por coluna"""
+        """Ordena tabela por coluna com indicadores visuais"""
         # Alterna direção de ordenação
         self.sort_reverse[column] = not self.sort_reverse.get(column, False)
         reverse = self.sort_reverse[column]
@@ -628,16 +629,61 @@ class DomainsTab:
             'checked': 'last_checked'
         }
 
+        # Nomes amigáveis dos headers
+        header_names = {
+            'domain': 'Domínio',
+            'status': 'Status',
+            'cms': 'CMS',
+            'version': 'Versão',
+            'ip': 'IP',
+            'server': 'Servidor',
+            'cloud': 'Cloud',
+            'registrar': 'Registrar',
+            'ssl': 'SSL (dias)',
+            'ga4': 'GA4',
+            'fb': 'FB',
+            'checked': 'Verificado'
+        }
+
         field = column_map.get(column)
         if not field:
             return
 
         # Ordena dados
         try:
-            self.current_data.sort(
-                key=lambda x: (x.get(field) is None, x.get(field) or ''),
-                reverse=reverse
-            )
+            # Função de chave de ordenação que trata números e strings corretamente
+            def sort_key(item):
+                value = item.get(field)
+
+                # Valores None vão para o final
+                if value is None:
+                    return (1, '')
+
+                # Para campos numéricos, converte para número
+                if field in ['status_code', 'ssl_expires_days']:
+                    try:
+                        return (0, int(value))
+                    except (ValueError, TypeError):
+                        return (1, str(value))
+
+                # Para strings, normaliza
+                return (0, str(value).lower())
+
+            self.current_data.sort(key=sort_key, reverse=reverse)
+
+            # Atualiza indicadores visuais nos headers
+            for col in column_map.keys():
+                header_text = header_names.get(col, col)
+                if col == column:
+                    # Adiciona seta indicando direção
+                    indicator = ' ▼' if reverse else ' ▲'
+                    self.tree.heading(col, text=header_text + indicator)
+                else:
+                    # Remove seta das outras colunas
+                    self.tree.heading(col, text=header_text)
+
+            # Atualiza coluna atualmente ordenada
+            self.current_sort_column = column
 
             # Atualiza tabela
             for item in self.tree.get_children():

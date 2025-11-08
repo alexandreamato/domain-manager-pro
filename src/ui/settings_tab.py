@@ -180,6 +180,15 @@ class SettingsTab:
         moz_entry = ttk.Entry(moz_frame, textvariable=self.moz_var, width=40, show='*')
         moz_entry.pack(side=tk.LEFT, padx=(10, 0))
 
+        # Instruções Moz
+        moz_help = ttk.Label(
+            api_frame,
+            text="ℹ️ Moz: Use o formato 'access_id:secret_key'",
+            font=('Arial', 8),
+            foreground='#888'
+        )
+        moz_help.pack(anchor=tk.W, padx=(20, 0), pady=(0, 5))
+
         # Seção sobre
         about_frame = ttk.LabelFrame(settings_container, text="Sobre", padding=20)
         about_frame.pack(fill=tk.X, padx=10, pady=10)

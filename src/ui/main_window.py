@@ -33,7 +33,9 @@ class MainWindow:
         self.collector = DomainCollector(
             timeout=self.config.get('timeout', 5),
             max_workers=self.config.get('max_workers', 10),
-            collect_web_seo=self.config.get('collect_web_seo', False)
+            collect_web_seo=self.config.get('collect_web_seo', False),
+            semrush_api_key=self.config.get('api_keys.semrush', ''),
+            moz_api_key=self.config.get('api_keys.moz', '')
         )
 
         # Dados
@@ -262,7 +264,9 @@ class MainWindow:
         self.collector = DomainCollector(
             timeout=self.config.get('timeout', 5),
             max_workers=self.config.get('max_workers', 10),
-            collect_web_seo=self.config.get('collect_web_seo', False)
+            collect_web_seo=self.config.get('collect_web_seo', False),
+            semrush_api_key=self.config.get('api_keys.semrush', ''),
+            moz_api_key=self.config.get('api_keys.moz', '')
         )
 
         # Atualiza no domains_tab

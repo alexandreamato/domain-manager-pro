@@ -13,22 +13,91 @@ logger = logging.getLogger(__name__)
 class WebSEOCollector:
     """Coleta métricas de SEO de fontes públicas gratuitas na web"""
 
-    def __init__(self, timeout=15):
+    def __init__(self, timeout=15, semrush_api_key=None, moz_api_key=None):
         """
         Inicializa o coletor web
 
         Args:
             timeout: Timeout para requisições
+            semrush_api_key: API key do SEMRush (opcional)
+            moz_api_key: API key do MOZ (opcional)
         """
         self.timeout = timeout
+        self.semrush_api_key = semrush_api_key
+        self.moz_api_key = moz_api_key
         self.session = requests.Session()
         self.session.headers.update({
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
         })
 
-    def get_moz_rank(self, domain):
+        # Log de API keys configuradas
+        if self.semrush_api_key:
+            logger.info("SEMRush API key configurada")
+        if self.moz_api_key:
+            logger.info("MOZ API key configurada")
+
+    def get_semrush_data(self, domain):
         """
-        Tenta obter MOZ Domain Authority (gratuito via checkers públicos)
+        Obtém dados do SEMRush via API oficial
+
+        Args:
+            domain: Nome do domínio
+
+        Returns:
+            Dict com métricas do SEMRush
+        """
+        result = {
+            'organic_keywords': None,
+            'organic_traffic': None,
+            'organic_cost': None,
+            'adwords_keywords': None,
+            'adwords_traffic': None,
+            'adwords_cost': None
+        }
+
+        if not self.semrush_api_key:
+            logger.debug(f"SEMRush API key não configurada, pulando para {domain}")
+            return result
+
+        try:
+            # API do SEMRush - Domain Overview
+            url = "https://api.semrush.com/"
+            params = {
+                'type': 'domain_ranks',
+                'key': self.semrush_api_key,
+                'export_columns': 'Or,Ot,Oc,Ad,At,Ac',
+                'domain': domain,
+                'database': 'us'
+            }
+
+            response = self.session.get(url, params=params, timeout=self.timeout)
+
+            if response.status_code == 200:
+                # Parse CSV response
+                lines = response.text.strip().split('\n')
+                if len(lines) > 1:
+                    # Segunda linha contém os dados
+                    data = lines[1].split(';')
+                    if len(data) >= 6:
+                        result['organic_keywords'] = int(data[0]) if data[0].isdigit() else None
+                        result['organic_traffic'] = int(data[1]) if data[1].isdigit() else None
+                        result['organic_cost'] = float(data[2]) if data[2].replace('.', '').isdigit() else None
+                        result['adwords_keywords'] = int(data[3]) if data[3].isdigit() else None
+                        result['adwords_traffic'] = int(data[4]) if data[4].isdigit() else None
+                        result['adwords_cost'] = float(data[5]) if data[5].replace('.', '').isdigit() else None
+
+                        logger.info(f"SEMRush dados para {domain}: {result['organic_keywords']} keywords orgânicas")
+            else:
+                logger.warning(f"SEMRush API retornou status {response.status_code} para {domain}")
+
+        except Exception as e:
+            logger.error(f"Erro ao buscar dados SEMRush para {domain}: {e}")
+
+        return result
+
+    def get_moz_data_official(self, domain):
+        """
+        Obtém dados do MOZ via API oficial
 
         Args:
             domain: Nome do domínio
@@ -36,6 +105,93 @@ class WebSEOCollector:
         Returns:
             Dict com DA, PA, spam score
         """
+        result = {
+            'domain_authority': None,
+            'page_authority': None,
+            'spam_score': None,
+            'backlinks': None
+        }
+
+        if not self.moz_api_key:
+            logger.debug(f"MOZ API key não configurada, pulando para {domain}")
+            return result
+
+        try:
+            # MOZ API v1 (Links API)
+            # Nota: MOZ API requer access_id e secret_key separados
+            # Aqui assumimos que moz_api_key está no formato "access_id:secret_key"
+
+            if ':' in self.moz_api_key:
+                access_id, secret_key = self.moz_api_key.split(':', 1)
+            else:
+                logger.warning("MOZ API key deve estar no formato 'access_id:secret_key'")
+                return result
+
+            import hmac
+            import hashlib
+            import base64
+            import time as time_module
+
+            # Prepara autenticação HMAC
+            expires = int(time_module.time()) + 300  # 5 minutos
+            string_to_sign = f"{access_id}\n{expires}"
+
+            signature = base64.b64encode(
+                hmac.new(
+                    secret_key.encode('utf-8'),
+                    string_to_sign.encode('utf-8'),
+                    hashlib.sha1
+                ).digest()
+            ).decode('utf-8')
+
+            # URL Metrics API
+            url = f"https://lsapi.seomoz.com/v2/url_metrics"
+
+            headers = {
+                'Authorization': f'Basic {base64.b64encode(f"{access_id}:{secret_key}".encode()).decode()}'
+            }
+
+            payload = {
+                'targets': [f'https://{domain}']
+            }
+
+            response = self.session.post(url, json=payload, headers=headers, timeout=self.timeout)
+
+            if response.status_code == 200:
+                data = response.json()
+                if 'results' in data and len(data['results']) > 0:
+                    metrics = data['results'][0]
+
+                    result['domain_authority'] = metrics.get('domain_authority')
+                    result['page_authority'] = metrics.get('page_authority')
+                    result['spam_score'] = metrics.get('spam_score')
+
+                    logger.info(f"MOZ DA para {domain}: {result['domain_authority']}")
+            else:
+                logger.warning(f"MOZ API retornou status {response.status_code} para {domain}")
+
+        except Exception as e:
+            logger.error(f"Erro ao buscar dados MOZ oficiais para {domain}: {e}")
+
+        return result
+
+    def get_moz_rank(self, domain):
+        """
+        Tenta obter MOZ Domain Authority (tenta API oficial primeiro, depois scraper)
+
+        Args:
+            domain: Nome do domínio
+
+        Returns:
+            Dict com DA, PA, spam score
+        """
+        # Tenta API oficial primeiro
+        if self.moz_api_key:
+            result = self.get_moz_data_official(domain)
+            if result['domain_authority'] is not None:
+                return result
+
+        # Fallback para scraper público
         result = {
             'domain_authority': None,
             'page_authority': None,
@@ -363,6 +519,7 @@ class WebSEOCollector:
         logger.info(f"Coletando SEO da web para {domain}")
 
         result = {
+            'semrush_data': {},
             'moz_data': {},
             'traffic_rank': {},
             'domain_age': {},
@@ -373,7 +530,15 @@ class WebSEOCollector:
         }
 
         try:
-            # MOZ metrics
+            # SEMRush metrics (se API key configurada)
+            if self.semrush_api_key:
+                result['semrush_data'] = self.get_semrush_data(domain)
+                time.sleep(1)  # Delay entre requests
+        except:
+            pass
+
+        try:
+            # MOZ metrics (tenta API oficial primeiro)
             result['moz_data'] = self.get_moz_rank(domain)
             time.sleep(2)  # Delay entre requests
         except:

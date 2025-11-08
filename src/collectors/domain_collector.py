@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 class DomainCollector:
     """Coleta informações completas de um domínio"""
 
-    def __init__(self, timeout=5, max_workers=10, collect_web_seo=False):
+    def __init__(self, timeout=5, max_workers=10, collect_web_seo=False, semrush_api_key=None, moz_api_key=None):
         """
         Inicializa o coletor
 
@@ -26,6 +26,8 @@ class DomainCollector:
             timeout: Timeout para requisições HTTP em segundos
             max_workers: Número máximo de threads paralelas
             collect_web_seo: Se True, coleta SEO da web (mais lento)
+            semrush_api_key: API key do SEMRush (opcional)
+            moz_api_key: API key do MOZ (opcional)
         """
         self.timeout = timeout
         self.max_workers = max_workers
@@ -40,7 +42,11 @@ class DomainCollector:
         if self.collect_web_seo:
             try:
                 from src.collectors.web_seo_collector import WebSEOCollector
-                self.web_seo_collector = WebSEOCollector(timeout=timeout * 2)
+                self.web_seo_collector = WebSEOCollector(
+                    timeout=timeout * 2,
+                    semrush_api_key=semrush_api_key,
+                    moz_api_key=moz_api_key
+                )
                 logger.info("Web SEO collector ativado")
             except Exception as e:
                 logger.warning(f"Não foi possível ativar Web SEO collector: {e}")

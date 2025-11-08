@@ -109,6 +109,36 @@ class SettingsTab:
         )
         refresh_spin.pack(side=tk.LEFT, padx=(10, 0))
 
+        # Seção de SEO
+        seo_frame = ttk.LabelFrame(settings_container, text="Configurações de SEO", padding=20)
+        seo_frame.pack(fill=tk.X, padx=10, pady=10)
+
+        # Checkbox para ativar Web SEO
+        self.collect_web_seo_var = tk.BooleanVar(value=self.config.get('collect_web_seo', False))
+
+        web_seo_check = ttk.Checkbutton(
+            seo_frame,
+            text="🌐 Coletar SEO da Web (MOZ, SimilarWeb, etc.)",
+            variable=self.collect_web_seo_var
+        )
+        web_seo_check.pack(anchor=tk.W, pady=5)
+
+        seo_help = ttk.Label(
+            seo_frame,
+            text="⚠️ Atenção: Ativa coleta de métricas avançadas de SEO da web. Pode deixar a análise mais lenta.",
+            foreground='#ffa500',
+            wraplength=600
+        )
+        seo_help.pack(anchor=tk.W, pady=(0, 10))
+
+        seo_info = ttk.Label(
+            seo_frame,
+            text="Métricas coletadas: Domain Authority, Page Authority, Ranking Global, Backlinks, Idade do Domínio, Hosting Provider",
+            foreground='#aaa',
+            wraplength=600
+        )
+        seo_info.pack(anchor=tk.W)
+
         # Seção de API Keys
         api_frame = ttk.LabelFrame(settings_container, text="API Keys (Opcional)", padding=20)
         api_frame.pack(fill=tk.X, padx=10, pady=10)
@@ -197,6 +227,9 @@ Recursos:
             self.config.set('timeout', self.timeout_var.get())
             self.config.set('max_workers', self.workers_var.get())
             self.config.set('auto_refresh_interval', self.refresh_var.get())
+
+            # Salva configurações de SEO
+            self.config.set('collect_web_seo', self.collect_web_seo_var.get())
 
             # Salva API keys
             self.config.set('api_keys.semrush', self.semrush_var.get())

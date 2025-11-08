@@ -32,7 +32,8 @@ class MainWindow:
         self.config = ConfigManager()
         self.collector = DomainCollector(
             timeout=self.config.get('timeout', 5),
-            max_workers=self.config.get('max_workers', 10)
+            max_workers=self.config.get('max_workers', 10),
+            collect_web_seo=self.config.get('collect_web_seo', False)
         )
 
         # Dados
@@ -257,11 +258,25 @@ class MainWindow:
         # Atualiza collector
         self.collector = DomainCollector(
             timeout=self.config.get('timeout', 5),
-            max_workers=self.config.get('max_workers', 10)
+            max_workers=self.config.get('max_workers', 10),
+            collect_web_seo=self.config.get('collect_web_seo', False)
         )
 
         # Atualiza no domains_tab
         self.domains_tab.collector = self.collector
+
+        # Mostra mensagem se Web SEO foi ativado
+        if self.config.get('collect_web_seo', False):
+            messagebox.showinfo(
+                "Web SEO Ativado",
+                "Coleta de SEO da Web foi ATIVADA!\n\n"
+                "Próximas análises incluirão métricas avançadas:\n"
+                "• Domain/Page Authority (MOZ)\n"
+                "• Ranking Global (SimilarWeb)\n"
+                "• Backlinks e Idade do Domínio\n"
+                "• Hosting Provider\n\n"
+                "⚠️ A análise será mais lenta, mas com muito mais informações!"
+            )
 
         self.update_status("Configurações atualizadas")
         logger.info("Configurações atualizadas")

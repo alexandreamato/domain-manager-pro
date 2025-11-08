@@ -151,6 +151,32 @@ class SEOTab:
         # Bind duplo clique
         self.tree.bind('<Double-1>', self.show_details)
 
+        # Bind seleção para atualizar painel de info
+        self.tree.bind('<<TreeviewSelect>>', self.update_info_panel)
+
+        # Frame de informações do domínio selecionado
+        info_frame = ttk.LabelFrame(self.frame, text="📌 Informações do Domínio Selecionado", padding=10)
+        info_frame.pack(fill=tk.X, padx=10, pady=(0, 10))
+
+        # Grid de informações
+        info_grid = ttk.Frame(info_frame)
+        info_grid.pack(fill=tk.X)
+
+        # Labels de informação
+        self.info_labels = {}
+
+        # Linha 1
+        row = 0
+        self._create_info_label(info_grid, "Tamanho:", "domain_length", row, 0)
+        self._create_info_label(info_grid, "Facebook Pixel:", "fb_pixel", row, 2)
+        self._create_info_label(info_grid, "Google Analytics:", "ga4", row, 4)
+
+        # Linha 2
+        row = 1
+        self._create_info_label(info_grid, "Redirects:", "redirects", row, 0)
+        self._create_info_label(info_grid, "Custo Anual:", "annual_cost", row, 2)
+        self._create_info_label(info_grid, "Valor Estimado:", "domain_value", row, 4)
+
         # Frame de estatísticas
         stats_frame = ttk.Frame(self.frame)
         stats_frame.pack(fill=tk.X, padx=10, pady=(0, 10))
@@ -161,6 +187,89 @@ class SEOTab:
             font=('Arial', 10)
         )
         self.stats_label.pack()
+
+    def _create_info_label(self, parent, label_text, key, row, col):
+        """Cria um par label/valor no grid de informações"""
+        label_frame = ttk.Frame(parent)
+        label_frame.grid(row=row, column=col, padx=10, pady=5, sticky='w')
+
+        ttk.Label(label_frame, text=label_text, font=('Arial', 9, 'bold')).pack(side=tk.LEFT, padx=(0, 5))
+
+        value_label = ttk.Label(label_frame, text="-", font=('Arial', 9))
+        value_label.pack(side=tk.LEFT)
+
+        self.info_labels[key] = value_label
+
+    def update_info_panel(self, event=None):
+        """Atualiza o painel de informações com o domínio selecionado"""
+        selection = self.tree.selection()
+
+        if not selection:
+            # Limpa info
+            for label in self.info_labels.values():
+                label.config(text="-", foreground='#aaa')
+            return
+
+        # Obtém dados do primeiro item selecionado
+        item = selection[0]
+        values = self.tree.item(item)['values']
+        domain_name = values[0]
+
+        # Busca dados completos
+        domain_data = next((d for d in self.current_data if d['domain'] == domain_name), None)
+
+        if not domain_data:
+            return
+
+        # Tamanho do domínio (número de caracteres)
+        domain_length = len(domain_name)
+        self.info_labels['domain_length'].config(
+            text=f"{domain_length} caracteres",
+            foreground='white'
+        )
+
+        # Facebook Pixel
+        fb_pixel = domain_data.get('fb_pixel')
+        if fb_pixel:
+            self.info_labels['fb_pixel'].config(text="✓ Sim", foreground='#28a745')
+        else:
+            self.info_labels['fb_pixel'].config(text="✗ Não", foreground='#dc3545')
+
+        # Google Analytics
+        ga4 = domain_data.get('ga4_code')
+        if ga4:
+            self.info_labels['ga4'].config(text="✓ Sim", foreground='#28a745')
+        else:
+            self.info_labels['ga4'].config(text="✗ Não", foreground='#dc3545')
+
+        # Redirects
+        redirect_count = domain_data.get('redirect_count', 0)
+        if redirect_count == 0:
+            self.info_labels['redirects'].config(text="Nenhum", foreground='#28a745')
+        elif redirect_count <= 2:
+            self.info_labels['redirects'].config(text=f"{redirect_count} redirect(s)", foreground='#ffc107')
+        else:
+            self.info_labels['redirects'].config(text=f"{redirect_count} redirect(s)", foreground='#dc3545')
+
+        # Custo anual estimado
+        annual_cost = domain_data.get('estimated_annual_cost')
+        if annual_cost:
+            self.info_labels['annual_cost'].config(
+                text=f"US$ {annual_cost}/ano",
+                foreground='white'
+            )
+        else:
+            self.info_labels['annual_cost'].config(text="-", foreground='#aaa')
+
+        # Valor estimado do domínio
+        domain_value = domain_data.get('estimated_domain_value')
+        if domain_value:
+            self.info_labels['domain_value'].config(
+                text=f"US$ {domain_value:,}",
+                foreground='white'
+            )
+        else:
+            self.info_labels['domain_value'].config(text="-", foreground='#aaa')
 
     def populate_table(self, domains):
         """

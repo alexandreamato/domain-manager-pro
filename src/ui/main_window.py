@@ -166,9 +166,12 @@ class MainWindow:
                 logger.info(f"Descobertos {len(subdomains)} subdomínios para {result.get('domain')}")
                 discovered_subdomains.extend(subdomains)
 
-        # Remove subdomínios que já existem no banco
+        # Remove subdomínios que já existem no banco (visíveis ou ocultos)
         if discovered_subdomains:
-            existing_domains = set(d['domain'] for d in self.domains_data)
+            # Busca TODOS os domínios (incluindo ocultos) para evitar re-descoberta
+            all_domains_in_db = self.db.get_all_domains(include_hidden=True)
+            existing_domains = set(d['domain'] for d in all_domains_in_db)
+
             new_subdomains = [s for s in discovered_subdomains if s not in existing_domains]
 
             if new_subdomains:

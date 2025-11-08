@@ -148,26 +148,30 @@ class DomainsTab:
             state='readonly',
             width=15
         )
-        self.cms_combo.pack(side=tk.LEFT, padx=(0, 20))
+        self.cms_combo.pack(side=tk.LEFT, padx=(0, 10))
         self.cms_combo.bind('<<ComboboxSelected>>', lambda e: self.filter_table())
 
+        # Frame de botões (segunda linha para garantir visibilidade)
+        buttons_frame = ttk.Frame(self.frame)
+        buttons_frame.pack(fill=tk.X, padx=10, pady=(0, 5))
+
         # Botões de ação
-        issues_btn = ttk.Button(tools_frame, text="⚠️ Problemas", command=self.show_issues_only)
+        issues_btn = ttk.Button(buttons_frame, text="⚠️ Problemas", command=self.show_issues_only)
         issues_btn.pack(side=tk.LEFT, padx=(0, 5))
 
-        export_btn = ttk.Button(tools_frame, text="💾 Exportar", command=self.export_data)
+        export_btn = ttk.Button(buttons_frame, text="💾 Exportar", command=self.export_data)
         export_btn.pack(side=tk.LEFT, padx=(0, 5))
 
-        refresh_btn = ttk.Button(tools_frame, text="🔄 Atualizar", command=self.refresh_selected)
+        refresh_btn = ttk.Button(buttons_frame, text="🔄 Atualizar", command=self.refresh_selected)
         refresh_btn.pack(side=tk.LEFT, padx=(0, 5))
 
-        hide_btn = ttk.Button(tools_frame, text="🙈 Ocultar", command=self.hide_selected)
+        hide_btn = ttk.Button(buttons_frame, text="🙈 Ocultar", command=self.hide_selected)
         hide_btn.pack(side=tk.LEFT, padx=(0, 5))
 
-        show_hidden_btn = ttk.Button(tools_frame, text="📂 Ver Ocultos", command=self.show_hidden_domains)
+        show_hidden_btn = ttk.Button(buttons_frame, text="📂 Ver Ocultos", command=self.show_hidden_domains)
         show_hidden_btn.pack(side=tk.LEFT, padx=(0, 5))
 
-        delete_btn = ttk.Button(tools_frame, text="❌ Remover", command=self.delete_selected)
+        delete_btn = ttk.Button(buttons_frame, text="❌ Remover", command=self.delete_selected)
         delete_btn.pack(side=tk.LEFT)
 
         # Frame da tabela

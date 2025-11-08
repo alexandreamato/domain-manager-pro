@@ -236,8 +236,6 @@ Recursos:
             self.config.set('api_keys.estibot', self.estibot_var.get())
             self.config.set('api_keys.moz', self.moz_var.get())
 
-            messagebox.showinfo("Sucesso", "Configurações salvas com sucesso!")
-
             # Callback
             if self.on_change_callback:
                 self.on_change_callback()

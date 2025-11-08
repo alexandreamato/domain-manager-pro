@@ -4,6 +4,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 import logging
 from datetime import datetime
+from src.utils.favicon_cache import FaviconCache
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +29,9 @@ class SEOTab:
         # Dados atuais
         self.current_data = []
         self.sort_reverse = {}
+
+        # Cache de favicons
+        self.favicon_cache = FaviconCache()
 
         # Criar interface
         self.create_widgets()
@@ -333,10 +337,14 @@ class SEOTab:
             else:
                 tags.append('poor')
 
+        # Obtém favicon
+        favicon = self.favicon_cache.get_favicon(domain_name, size=16)
+
         # Insere
         self.tree.insert(
             '',
             tk.END,
+            image=favicon if favicon else '',
             values=(
                 domain_name,
                 seo_score,
@@ -498,7 +506,6 @@ class SEOTab:
         try:
             domains = self.db.get_all_domains(include_hidden=False)
             self.populate_table(domains)
-            messagebox.showinfo("Sucesso", f"Dados atualizados! {len(domains)} domínio(s) visível(is).")
         except Exception as e:
             logger.error(f"Erro ao atualizar dados: {e}")
             messagebox.showerror("Erro", f"Erro ao atualizar dados: {e}")

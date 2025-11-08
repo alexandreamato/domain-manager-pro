@@ -268,19 +268,6 @@ class MainWindow:
         # Atualiza no domains_tab
         self.domains_tab.collector = self.collector
 
-        # Mostra mensagem se Web SEO foi ativado
-        if self.config.get('collect_web_seo', False):
-            messagebox.showinfo(
-                "Web SEO Ativado",
-                "Coleta de SEO da Web foi ATIVADA!\n\n"
-                "Próximas análises incluirão métricas avançadas:\n"
-                "• Domain/Page Authority (MOZ)\n"
-                "• Ranking Global (SimilarWeb)\n"
-                "• Backlinks e Idade do Domínio\n"
-                "• Hosting Provider\n\n"
-                "⚠️ A análise será mais lenta, mas com muito mais informações!"
-            )
-
         self.update_status("Configurações atualizadas")
         logger.info("Configurações atualizadas")
 

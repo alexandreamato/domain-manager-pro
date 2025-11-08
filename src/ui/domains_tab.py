@@ -5,6 +5,7 @@ from tkinter import ttk, messagebox, scrolledtext, filedialog
 import threading
 import logging
 from datetime import datetime
+from src.utils.favicon_cache import FaviconCache
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +33,9 @@ class DomainsTab:
         self.analyzing = False
         self.current_data = []
         self.sort_reverse = {}  # Controla direção de ordenação por coluna
+
+        # Cache de favicons
+        self.favicon_cache = FaviconCache()
 
         # Criar frame principal
         self.frame = ttk.Frame(parent)
@@ -246,6 +250,33 @@ class DomainsTab:
         # Bind botão direito para menu de contexto
         self.tree.bind('<Button-3>', self.show_context_menu)
 
+        # Bind seleção para atualizar observações
+        self.tree.bind('<<TreeviewSelect>>', self.on_domain_selected)
+
+        # Painel de observações
+        notes_frame = ttk.LabelFrame(self.frame, text="📝 Observações", padding=10)
+        notes_frame.pack(fill=tk.X, padx=10, pady=(0, 10))
+
+        # Texto das observações
+        self.notes_text = scrolledtext.ScrolledText(
+            notes_frame,
+            height=4,
+            wrap=tk.WORD,
+            font=('Arial', 10)
+        )
+        self.notes_text.pack(fill=tk.X, pady=(0, 5))
+
+        # Botão salvar
+        save_notes_btn = ttk.Button(
+            notes_frame,
+            text="💾 Salvar Observações",
+            command=self.save_notes
+        )
+        save_notes_btn.pack(anchor=tk.E)
+
+        # Variável para armazenar domínio atual
+        self.current_selected_domain = None
+
     def import_domains(self):
         """Importa domínios de um arquivo TXT"""
         filepath = filedialog.askopenfilename(
@@ -260,8 +291,6 @@ class DomainsTab:
                     current = self.domains_text.get('1.0', tk.END)
                     self.domains_text.delete('1.0', tk.END)
                     self.domains_text.insert('1.0', current + content)
-
-                messagebox.showinfo("Sucesso", "Domínios importados com sucesso!")
 
             except Exception as e:
                 messagebox.showerror("Erro", f"Erro ao importar arquivo: {e}")
@@ -327,8 +356,6 @@ class DomainsTab:
         # Callback para janela principal
         if self.on_complete_callback:
             self.on_complete_callback(results)
-
-        messagebox.showinfo("Sucesso", f"{len(results)} domínio(s) analisado(s) com sucesso!")
 
     def _reset_analysis(self):
         """Reseta estado de análise"""
@@ -400,10 +427,14 @@ class DomainsTab:
         elif isinstance(status, int) and status >= 400:
             tags.append('error')
 
+        # Obtém favicon
+        favicon = self.favicon_cache.get_favicon(domain.get('domain', ''), size=16)
+
         # Insere
         self.tree.insert(
             '',
             tk.END,
+            image=favicon if favicon else '',
             values=(
                 domain.get('domain', ''),
                 status,
@@ -501,6 +532,58 @@ class DomainsTab:
 
         except Exception as e:
             logger.error(f"Erro ao ordenar por {column}: {e}")
+
+    def on_domain_selected(self, event):
+        """Atualiza o painel de observações quando um domínio é selecionado"""
+        selection = self.tree.selection()
+        if not selection:
+            self.notes_text.delete('1.0', tk.END)
+            self.current_selected_domain = None
+            return
+
+        # Pega o primeiro item selecionado
+        item = selection[0]
+        values = self.tree.item(item, 'values')
+
+        if not values:
+            return
+
+        domain_name = values[0]
+        self.current_selected_domain = domain_name
+
+        # Busca as observações do banco
+        try:
+            domain_data = self.db.get_domain(domain_name)
+            if domain_data:
+                notes = domain_data.get('observations', '') or ''
+                self.notes_text.delete('1.0', tk.END)
+                self.notes_text.insert('1.0', notes)
+        except Exception as e:
+            logger.error(f"Erro ao carregar observações: {e}")
+
+    def save_notes(self):
+        """Salva as observações do domínio atual"""
+        if not self.current_selected_domain:
+            return
+
+        try:
+            notes = self.notes_text.get('1.0', tk.END).strip()
+
+            # Atualiza no banco
+            conn = self.db.get_connection()
+            cursor = conn.cursor()
+            cursor.execute(
+                'UPDATE domains SET observations = ? WHERE domain = ?',
+                (notes, self.current_selected_domain)
+            )
+            conn.commit()
+            conn.close()
+
+            logger.info(f"Observações salvas para {self.current_selected_domain}")
+
+        except Exception as e:
+            logger.error(f"Erro ao salvar observações: {e}")
+            messagebox.showerror("Erro", f"Erro ao salvar observações: {e}")
 
     def show_details(self, event):
         """Mostra detalhes de um domínio"""

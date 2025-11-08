@@ -152,6 +152,9 @@ class DomainsTab:
         self.cms_combo.bind('<<ComboboxSelected>>', lambda e: self.filter_table())
 
         # Botões de ação
+        issues_btn = ttk.Button(tools_frame, text="⚠️ Problemas", command=self.show_issues_only)
+        issues_btn.pack(side=tk.LEFT, padx=(0, 5))
+
         export_btn = ttk.Button(tools_frame, text="💾 Exportar", command=self.export_data)
         export_btn.pack(side=tk.LEFT, padx=(0, 5))
 
@@ -588,6 +591,45 @@ OBSERVAÇÕES: {domain_data.get('observations', '-')}
         """Mostra menu de contexto"""
         # TODO: Implementar menu de contexto
         pass
+
+    def show_issues_only(self):
+        """Mostra apenas domínios com problemas, ordenados por prioridade"""
+        try:
+            # Busca domínios com problemas
+            issues = self.db.get_domains_with_issues()
+
+            if not issues:
+                messagebox.showinfo(
+                    "Problemas",
+                    "Nenhum domínio com problemas encontrado!\n\n"
+                    "✓ Todos os domínios estão funcionando corretamente."
+                )
+                return
+
+            # Popula tabela com domínios problemáticos
+            self.populate_table(issues)
+
+            # Conta por prioridade
+            priority_counts = {}
+            for domain in issues:
+                priority = domain.get('issue_priority', 'DESCONHECIDO')
+                priority_counts[priority] = priority_counts.get(priority, 0) + 1
+
+            # Monta mensagem
+            msg_parts = [f"Encontrados {len(issues)} domínio(s) com problemas:\n"]
+
+            if priority_counts.get('CRÍTICO'):
+                msg_parts.append(f"🔴 {priority_counts['CRÍTICO']} CRÍTICO(S)")
+            if priority_counts.get('MÉDIO'):
+                msg_parts.append(f"🟡 {priority_counts['MÉDIO']} MÉDIO(S)")
+            if priority_counts.get('AVISO'):
+                msg_parts.append(f"🟠 {priority_counts['AVISO']} AVISO(S)")
+
+            messagebox.showinfo("Problemas Detectados", "\n".join(msg_parts))
+
+        except Exception as e:
+            logger.error(f"Erro ao buscar domínios com problemas: {e}")
+            messagebox.showerror("Erro", f"Erro ao buscar problemas: {e}")
 
     def export_data(self):
         """Exporta dados da tabela"""

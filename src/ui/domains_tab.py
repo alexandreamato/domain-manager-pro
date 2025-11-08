@@ -579,6 +579,15 @@ OBSERVAÇÕES: {domain_data.get('observations', '-')}
         headers_text.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
 
         raw_headers = domain_data.get('raw_headers', {})
+
+        # Converte de string JSON se necessário
+        if isinstance(raw_headers, str):
+            try:
+                import json
+                raw_headers = json.loads(raw_headers)
+            except:
+                raw_headers = {}
+
         if raw_headers:
             for key, value in raw_headers.items():
                 headers_text.insert(tk.END, f"{key}: {value}\n")

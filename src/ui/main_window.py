@@ -11,6 +11,7 @@ from src.collectors.domain_collector import DomainCollector
 from src.reports.exporter import DataExporter
 from src.utils.config import ConfigManager
 from src.ui.domains_tab import DomainsTab
+from src.ui.seo_tab import SEOTab
 from src.ui.reports_tab import ReportsTab
 from src.ui.settings_tab import SettingsTab
 
@@ -116,6 +117,10 @@ class MainWindow:
         )
         self.notebook.add(self.domains_tab.frame, text="🏠 Domínios")
 
+        # Aba de SEO Dashboard
+        self.seo_tab = SEOTab(self.notebook, self.db)
+        self.notebook.add(self.seo_tab.frame, text="🔍 SEO Dashboard")
+
         # Aba de Relatórios
         self.reports_tab = ReportsTab(self.notebook, self.db)
         self.notebook.add(self.reports_tab.frame, text="📊 Relatórios")
@@ -152,13 +157,85 @@ class MainWindow:
             except Exception as e:
                 logger.error(f"Erro ao salvar domínio {result.get('domain')}: {e}")
 
+        # Coleta subdomínios descobertos para análise automática
+        discovered_subdomains = []
+        for result in results:
+            subdomains = result.get('discovered_subdomains', [])
+            if subdomains:
+                logger.info(f"Descobertos {len(subdomains)} subdomínios para {result.get('domain')}")
+                discovered_subdomains.extend(subdomains)
+
+        # Remove subdomínios que já existem no banco
+        if discovered_subdomains:
+            existing_domains = set(d['domain'] for d in self.domains_data)
+            new_subdomains = [s for s in discovered_subdomains if s not in existing_domains]
+
+            if new_subdomains:
+                logger.info(f"Analisando {len(new_subdomains)} novos subdomínios...")
+                self.update_status(f"Analisando {len(new_subdomains)} subdomínios descobertos...")
+
+                # Analisa subdomínios em background
+                threading.Thread(
+                    target=self._analyze_subdomains,
+                    args=(new_subdomains,),
+                    daemon=True
+                ).start()
+
         # Atualiza dados
         self.load_saved_domains()
 
         # Atualiza aba de relatórios
         self.reports_tab.refresh_charts(self.domains_data)
 
+        # Atualiza aba de SEO
+        self.seo_tab.populate_table(self.domains_data)
+
         self.update_status("Análise concluída")
+
+    def _analyze_subdomains(self, subdomains):
+        """
+        Analisa subdomínios descobertos em background
+
+        Args:
+            subdomains: Lista de subdomínios para analisar
+        """
+        try:
+            # Analisa subdomínios
+            results = self.collector.collect_multiple(subdomains)
+
+            # Salva no banco
+            for result in results:
+                try:
+                    self.db.save_domain(result)
+                except Exception as e:
+                    logger.error(f"Erro ao salvar subdomínio {result.get('domain')}: {e}")
+
+            # Atualiza UI no thread principal
+            self.root.after(0, self._on_subdomains_complete, len(results))
+
+        except Exception as e:
+            logger.error(f"Erro ao analisar subdomínios: {e}")
+
+    def _on_subdomains_complete(self, count):
+        """
+        Callback quando análise de subdomínios é concluída
+
+        Args:
+            count: Número de subdomínios analisados
+        """
+        # Atualiza dados
+        self.load_saved_domains()
+
+        # Atualiza abas
+        self.reports_tab.refresh_charts(self.domains_data)
+        self.seo_tab.populate_table(self.domains_data)
+
+        # Notifica usuário
+        self.update_status(f"{count} subdomínios analisados")
+        messagebox.showinfo(
+            "Subdomínios Descobertos",
+            f"{count} subdomínios foram descobertos e analisados automaticamente!"
+        )
 
     def on_tab_changed(self, event):
         """Callback para mudança de aba"""
@@ -168,6 +245,9 @@ class MainWindow:
         if "Relatórios" in tab_text:
             # Atualiza relatórios quando a aba é selecionada
             self.reports_tab.refresh_charts(self.domains_data)
+        elif "SEO Dashboard" in tab_text:
+            # Atualiza SEO Dashboard quando a aba é selecionada
+            self.seo_tab.populate_table(self.domains_data)
 
     def on_settings_changed(self):
         """Callback para quando as configurações são alteradas"""

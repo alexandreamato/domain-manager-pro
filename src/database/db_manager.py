@@ -45,10 +45,42 @@ class DatabaseManager:
                 observations TEXT,
                 raw_headers TEXT,
                 raw_metadata TEXT,
+                redirect_count INTEGER DEFAULT 0,
+                discovered_subdomains TEXT,
+                estimated_annual_cost INTEGER,
+                google_indexed_pages INTEGER,
+                seo_score INTEGER,
+                estimated_domain_value INTEGER,
                 last_checked TIMESTAMP,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         ''')
+
+        # Adiciona novos campos se não existirem (migração)
+        try:
+            cursor.execute("ALTER TABLE domains ADD COLUMN redirect_count INTEGER DEFAULT 0")
+        except:
+            pass
+        try:
+            cursor.execute("ALTER TABLE domains ADD COLUMN discovered_subdomains TEXT")
+        except:
+            pass
+        try:
+            cursor.execute("ALTER TABLE domains ADD COLUMN estimated_annual_cost INTEGER")
+        except:
+            pass
+        try:
+            cursor.execute("ALTER TABLE domains ADD COLUMN google_indexed_pages INTEGER")
+        except:
+            pass
+        try:
+            cursor.execute("ALTER TABLE domains ADD COLUMN seo_score INTEGER")
+        except:
+            pass
+        try:
+            cursor.execute("ALTER TABLE domains ADD COLUMN estimated_domain_value INTEGER")
+        except:
+            pass
 
         # Tabela de configurações
         cursor.execute('''
@@ -108,7 +140,13 @@ class DatabaseManager:
                 'is_spam': 0,
                 'observations': '',
                 'raw_headers': {},
-                'raw_metadata': {}
+                'raw_metadata': {},
+                'redirect_count': 0,
+                'discovered_subdomains': [],
+                'estimated_annual_cost': None,
+                'google_indexed_pages': None,
+                'seo_score': None,
+                'estimated_domain_value': None
             }
 
             # Mescla defaults com domain_data (domain_data sobrescreve defaults)
@@ -124,6 +162,9 @@ class DatabaseManager:
             if isinstance(data.get('raw_metadata'), dict):
                 data['raw_metadata'] = json.dumps(data['raw_metadata'])
 
+            if isinstance(data.get('discovered_subdomains'), list):
+                data['discovered_subdomains'] = json.dumps(data['discovered_subdomains'])
+
             # Adicionar timestamp
             data['last_checked'] = datetime.now()
 
@@ -133,12 +174,16 @@ class DatabaseManager:
                     domain, status_code, server, cloud_provider, cms_detected,
                     cms_version, ga4_code, fb_pixel, ip_address, registrar,
                     ssl_expires_days, dns_servers, whois_created, whois_expires,
-                    is_spam, observations, raw_headers, raw_metadata, last_checked
+                    is_spam, observations, raw_headers, raw_metadata, redirect_count,
+                    discovered_subdomains, estimated_annual_cost, google_indexed_pages,
+                    seo_score, estimated_domain_value, last_checked
                 ) VALUES (
                     :domain, :status_code, :server, :cloud_provider, :cms_detected,
                     :cms_version, :ga4_code, :fb_pixel, :ip_address, :registrar,
                     :ssl_expires_days, :dns_servers, :whois_created, :whois_expires,
-                    :is_spam, :observations, :raw_headers, :raw_metadata, :last_checked
+                    :is_spam, :observations, :raw_headers, :raw_metadata, :redirect_count,
+                    :discovered_subdomains, :estimated_annual_cost, :google_indexed_pages,
+                    :seo_score, :estimated_domain_value, :last_checked
                 )
             ''', data)
 

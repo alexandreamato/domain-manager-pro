@@ -31,6 +31,7 @@ class DomainsTab:
 
         self.analyzing = False
         self.current_data = []
+        self.sort_reverse = {}  # Controla direção de ordenação por coluna
 
         # Criar frame principal
         self.frame = ttk.Frame(parent)
@@ -447,8 +448,46 @@ class DomainsTab:
 
     def sort_column(self, column):
         """Ordena tabela por coluna"""
-        # TODO: Implementar ordenação
-        pass
+        # Alterna direção de ordenação
+        self.sort_reverse[column] = not self.sort_reverse.get(column, False)
+        reverse = self.sort_reverse[column]
+
+        # Mapeia coluna para campo no dicionário
+        column_map = {
+            'domain': 'domain',
+            'status': 'status_code',
+            'cms': 'cms_detected',
+            'version': 'cms_version',
+            'ip': 'ip_address',
+            'server': 'server',
+            'cloud': 'cloud_provider',
+            'registrar': 'registrar',
+            'ssl': 'ssl_expires_days',
+            'ga4': 'ga4_code',
+            'fb': 'fb_pixel',
+            'checked': 'last_checked'
+        }
+
+        field = column_map.get(column)
+        if not field:
+            return
+
+        # Ordena dados
+        try:
+            self.current_data.sort(
+                key=lambda x: (x.get(field) is None, x.get(field) or ''),
+                reverse=reverse
+            )
+
+            # Atualiza tabela
+            for item in self.tree.get_children():
+                self.tree.delete(item)
+
+            for domain in self.current_data:
+                self._insert_domain(domain)
+
+        except Exception as e:
+            logger.error(f"Erro ao ordenar por {column}: {e}")
 
     def show_details(self, event):
         """Mostra detalhes de um domínio"""

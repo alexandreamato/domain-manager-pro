@@ -33,23 +33,43 @@ class DomainCollector:
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
         })
 
-    def normalize_domain(self, domain):
+    def normalize_domain(self, domain, keep_subdomain=True, keep_path=False):
         """
-        Normaliza o domínio removendo protocolo e paths
+        Normaliza o domínio/URL
 
         Args:
-            domain: Domínio a ser normalizado
+            domain: Domínio ou URL a ser normalizado
+            keep_subdomain: Se True, mantém subdomínios (blog.site.com)
+            keep_path: Se True, mantém o path completo
 
         Returns:
-            Domínio normalizado
+            Domínio/URL normalizado
         """
-        # Remove protocolo
-        domain = re.sub(r'^https?://', '', domain)
-        # Remove path
-        domain = domain.split('/')[0]
-        # Remove www.
-        domain = re.sub(r'^www\.', '', domain)
-        return domain.strip().lower()
+        # Remove espaços
+        domain = domain.strip()
+
+        # Adiciona protocolo se não tiver
+        if not domain.startswith(('http://', 'https://')):
+            domain = 'https://' + domain
+
+        # Parse URL
+        parsed = urlparse(domain)
+        hostname = parsed.netloc or parsed.path.split('/')[0]
+
+        # Remove porta se tiver
+        hostname = hostname.split(':')[0]
+
+        # Remove www apenas se keep_subdomain for False
+        if not keep_subdomain:
+            hostname = re.sub(r'^www\.', '', hostname)
+
+        result = hostname.lower()
+
+        # Adiciona path se solicitado
+        if keep_path and parsed.path and parsed.path != '/':
+            result = result + parsed.path
+
+        return result
 
     def collect_http_info(self, domain):
         """
@@ -59,13 +79,14 @@ class DomainCollector:
             domain: Domínio a ser analisado
 
         Returns:
-            Dicionário com informações HTTP
+            Dicionário com informações HTTP e response
         """
         info = {
             'status_code': None,
             'server': None,
             'cloud_provider': None,
-            'raw_headers': {}
+            'raw_headers': {},
+            'redirect_count': 0
         }
 
         try:
@@ -75,6 +96,9 @@ class DomainCollector:
 
             info['status_code'] = response.status_code
             info['raw_headers'] = dict(response.headers)
+
+            # Conta redirects
+            info['redirect_count'] = len(response.history)
 
             # Detecta servidor
             info['server'] = response.headers.get('Server', 'Unknown')
@@ -386,6 +410,94 @@ class DomainCollector:
 
         return False
 
+    def _estimate_annual_cost(self, domain):
+        """
+        Estima o custo anual aproximado do domínio baseado na TLD
+
+        Args:
+            domain: Nome do domínio
+
+        Returns:
+            Custo estimado em USD ou None
+        """
+        tld = domain.split('.')[-1].lower()
+
+        # Tabela de custos médios anuais por TLD (em USD)
+        tld_costs = {
+            'com': 15, 'net': 15, 'org': 15, 'info': 15,
+            'br': 20, 'com.br': 20, 'net.br': 20, 'org.br': 20,
+            'co': 25, 'io': 40, 'ai': 80, 'app': 18,
+            'dev': 15, 'blog': 30, 'shop': 35, 'store': 60,
+            'online': 40, 'site': 25, 'website': 25,
+            'tech': 55, 'cloud': 25, 'digital': 35,
+            'pro': 20, 'biz': 20, 'me': 20, 'tv': 40,
+            'cc': 25, 'ws': 10, 'us': 10, 'uk': 10,
+            'xyz': 12, 'top': 8, 'club': 15, 'life': 30,
+            'live': 25, 'today': 25, 'world': 30,
+            'education': 25, 'academy': 35, 'institute': 25,
+            'agency': 25, 'studio': 25, 'design': 55,
+            'art': 15, 'gallery': 25, 'photo': 35,
+            'ninja': 25, 'expert': 55, 'guru': 35,
+            'med.br': 30, 'art.br': 20
+        }
+
+        return tld_costs.get(tld, 20)  # Default: $20/ano
+
+    def discover_subdomains(self, domain):
+        """
+        Descobre subdomínios via DNS
+
+        Args:
+            domain: Domínio base
+
+        Returns:
+            Lista de subdomínios encontrados
+        """
+        subdomains = []
+
+        # Remove subdomínio se tiver (para buscar no domínio raiz)
+        base_domain = domain
+        parts = domain.split('.')
+        if len(parts) > 2:
+            base_domain = '.'.join(parts[-2:])
+
+        # Lista de subdomínios comuns para testar
+        common_subdomains = [
+            'www', 'mail', 'ftp', 'localhost', 'webmail', 'smtp', 'pop', 'ns1', 'ns2',
+            'webdisk', 'ns', 'cpanel', 'whm', 'autodiscover', 'autoconfig', 'mobile',
+            'blog', 'shop', 'api', 'dev', 'staging', 'test', 'admin', 'portal',
+            'm', 'forum', 'cdn', 'static', 'img', 'images', 'ftp', 'sftp'
+        ]
+
+        for sub in common_subdomains:
+            full_domain = f"{sub}.{base_domain}"
+            try:
+                # Tenta resolver o DNS
+                socket.gethostbyname(full_domain)
+                subdomains.append(full_domain)
+                logger.info(f"Subdomínio encontrado: {full_domain}")
+            except:
+                pass
+
+        # Tenta buscar registros DNS comuns
+        try:
+            # MX records
+            mx_records = dns.resolver.resolve(base_domain, 'MX')
+            for mx in mx_records:
+                mx_domain = str(mx.exchange).rstrip('.')
+                if base_domain in mx_domain and mx_domain not in subdomains:
+                    subdomains.append(mx_domain)
+        except:
+            pass
+
+        try:
+            # TXT records (às vezes revelam subdomínios)
+            txt_records = dns.resolver.resolve(base_domain, 'TXT')
+        except:
+            pass
+
+        return list(set(subdomains))  # Remove duplicatas
+
     def collect_all_info(self, domain):
         """
         Coleta todas as informações de um domínio
@@ -419,7 +531,10 @@ class DomainCollector:
             'is_spam': 0,
             'observations': '',
             'raw_headers': {},
-            'raw_metadata': {}
+            'raw_metadata': {},
+            'redirect_count': 0,
+            'discovered_subdomains': [],
+            'estimated_annual_cost': None
         }
 
         # Coleta HTTP
@@ -453,6 +568,20 @@ class DomainCollector:
         else:
             result['is_spam'] = 0
 
+        # Descoberta de subdomínios (opcional, pode ser lento)
+        try:
+            subdomains = self.discover_subdomains(domain)
+            result['discovered_subdomains'] = subdomains
+        except Exception as e:
+            logger.error(f"Erro ao descobrir subdomínios de {domain}: {e}")
+            result['discovered_subdomains'] = []
+
+        # Estimativa de custo anual (baseado na TLD)
+        try:
+            result['estimated_annual_cost'] = self._estimate_annual_cost(domain)
+        except:
+            result['estimated_annual_cost'] = None
+
         logger.info(f"Informações de {domain} coletadas com sucesso")
 
         return result
@@ -468,14 +597,19 @@ class DomainCollector:
         Returns:
             Lista de dicionários com informações
         """
+        # Remove duplicatas (mantendo subdomínios e paths únicos)
+        unique_domains = list(set([self.normalize_domain(d, keep_subdomain=True, keep_path=False) for d in domains]))
+
+        logger.info(f"Processando {len(unique_domains)} domínios únicos (de {len(domains)} fornecidos)")
+
         results = []
-        total = len(domains)
+        total = len(unique_domains)
 
         with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
             # Submete todas as tarefas
             future_to_domain = {
                 executor.submit(self.collect_all_info, domain): domain
-                for domain in domains
+                for domain in unique_domains
             }
 
             # Coleta resultados conforme completam

@@ -275,6 +275,81 @@ class SEOTab:
         else:
             self.info_labels['domain_value'].config(text="-", foreground='#aaa')
 
+    def _get_root_domain(self, domain):
+        """
+        Extrai o domínio raiz de um domínio completo
+
+        Args:
+            domain: Nome do domínio (ex: blog.example.com)
+
+        Returns:
+            Domínio raiz (ex: example.com)
+        """
+        # Remove protocolo se houver
+        domain = domain.replace('http://', '').replace('https://', '').split('/')[0]
+
+        parts = domain.split('.')
+
+        # Se tem 2 ou menos partes, já é o domínio raiz
+        if len(parts) <= 2:
+            return domain
+
+        # Casos especiais de TLDs com duas partes (co.uk, com.br, etc)
+        two_part_tlds = ['co.uk', 'com.br', 'com.au', 'co.nz', 'co.za', 'gov.br', 'org.br']
+
+        # Verifica se termina com TLD de duas partes
+        if len(parts) >= 3:
+            potential_tld = '.'.join(parts[-2:])
+            if potential_tld in two_part_tlds:
+                # Retorna domínio + TLD de duas partes
+                return '.'.join(parts[-3:]) if len(parts) >= 3 else domain
+
+        # Caso padrão: últimas duas partes
+        return '.'.join(parts[-2:])
+
+    def _insert_domains_hierarchically(self, domains):
+        """
+        Insere domínios organizados hierarquicamente
+
+        Args:
+            domains: Lista de domínios para inserir
+        """
+        # Organiza domínios em hierarquia
+        # 1. Separa domínios principais e subdomínios
+        root_domains = {}
+        subdomains = {}
+
+        for domain_data in domains:
+            domain_name = domain_data.get('domain', '')
+            root = self._get_root_domain(domain_name)
+
+            # É o domínio raiz?
+            if domain_name == root:
+                root_domains[domain_name] = domain_data
+            else:
+                # É subdomínio
+                if root not in subdomains:
+                    subdomains[root] = []
+                subdomains[root].append(domain_data)
+
+        # 2. Insere domínios raiz primeiro, depois seus subdomínios
+        for root_name in sorted(root_domains.keys()):
+            root_data = root_domains[root_name]
+
+            # Insere domínio raiz
+            parent_id = self._insert_domain(root_data, parent='')
+
+            # Insere subdomínios abaixo
+            if root_name in subdomains:
+                for subdomain_data in sorted(subdomains[root_name], key=lambda x: x.get('domain', '')):
+                    self._insert_domain(subdomain_data, parent=parent_id)
+
+        # 3. Insere subdomínios órfãos (cujo domínio raiz não está na lista)
+        for root_name in sorted(subdomains.keys()):
+            if root_name not in root_domains:
+                for subdomain_data in sorted(subdomains[root_name], key=lambda x: x.get('domain', '')):
+                    self._insert_domain(subdomain_data, parent='')
+
     def populate_table(self, domains):
         """
         Popula a tabela com dados de SEO
@@ -289,15 +364,13 @@ class SEOTab:
         # Armazena dados
         self.current_data = domains
 
-        # Mostra TODOS os domínios (mesmo sem dados completos de SEO)
-        # Isso permite ver o que foi coletado mesmo sem web SEO ativo
-        for domain in domains:
-            self._insert_domain(domain)
+        # Insere domínios hierarquicamente
+        self._insert_domains_hierarchically(domains)
 
         # Atualiza estatísticas
         self._update_stats(domains)
 
-    def _insert_domain(self, domain):
+    def _insert_domain(self, domain, parent=''):
         """Insere um domínio na tabela"""
         # Formata dados
         domain_name = domain.get('domain', '')
@@ -340,9 +413,9 @@ class SEOTab:
         # Obtém favicon
         favicon = self.favicon_cache.get_favicon(domain_name, size=16)
 
-        # Insere
-        self.tree.insert(
-            '',
+        # Insere (usa parent se fornecido)
+        item_id = self.tree.insert(
+            parent,  # Parent node ('' para nível raiz)
             tk.END,
             image=favicon if favicon else '',
             values=(
@@ -358,6 +431,8 @@ class SEOTab:
             ),
             tags=tags
         )
+
+        return item_id
 
     def filter_table(self):
         """Filtra a tabela"""
@@ -394,9 +469,10 @@ class SEOTab:
                 elif quality_filter == "Ruim (<40)" and seo_score >= 40:
                     continue
 
-            # Insere
-            self._insert_domain(domain)
             filtered.append(domain)
+
+        # Insere hierarquicamente
+        self._insert_domains_hierarchically(filtered)
 
         # Atualiza estatísticas
         self._update_stats(filtered)

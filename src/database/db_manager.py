@@ -90,18 +90,42 @@ class DatabaseManager:
         cursor = conn.cursor()
 
         try:
+            # Garantir que todos os campos obrigatórios existam com valores padrão
+            defaults = {
+                'status_code': None,
+                'server': None,
+                'cloud_provider': None,
+                'cms_detected': None,
+                'cms_version': None,
+                'ga4_code': None,
+                'fb_pixel': None,
+                'ip_address': None,
+                'registrar': None,
+                'ssl_expires_days': None,
+                'dns_servers': [],
+                'whois_created': None,
+                'whois_expires': None,
+                'is_spam': 0,
+                'observations': '',
+                'raw_headers': {},
+                'raw_metadata': {}
+            }
+
+            # Mescla defaults com domain_data (domain_data sobrescreve defaults)
+            data = {**defaults, **domain_data}
+
             # Converter listas/dicts para JSON
-            if 'dns_servers' in domain_data and isinstance(domain_data['dns_servers'], list):
-                domain_data['dns_servers'] = json.dumps(domain_data['dns_servers'])
+            if isinstance(data.get('dns_servers'), list):
+                data['dns_servers'] = json.dumps(data['dns_servers'])
 
-            if 'raw_headers' in domain_data and isinstance(domain_data['raw_headers'], dict):
-                domain_data['raw_headers'] = json.dumps(domain_data['raw_headers'])
+            if isinstance(data.get('raw_headers'), dict):
+                data['raw_headers'] = json.dumps(data['raw_headers'])
 
-            if 'raw_metadata' in domain_data and isinstance(domain_data['raw_metadata'], dict):
-                domain_data['raw_metadata'] = json.dumps(domain_data['raw_metadata'])
+            if isinstance(data.get('raw_metadata'), dict):
+                data['raw_metadata'] = json.dumps(data['raw_metadata'])
 
             # Adicionar timestamp
-            domain_data['last_checked'] = datetime.now()
+            data['last_checked'] = datetime.now()
 
             # INSERT OR REPLACE
             cursor.execute('''
@@ -116,13 +140,13 @@ class DatabaseManager:
                     :ssl_expires_days, :dns_servers, :whois_created, :whois_expires,
                     :is_spam, :observations, :raw_headers, :raw_metadata, :last_checked
                 )
-            ''', domain_data)
+            ''', data)
 
             conn.commit()
-            logger.info(f"Domínio {domain_data.get('domain')} salvo com sucesso")
+            logger.info(f"Domínio {data.get('domain')} salvo com sucesso")
 
         except Exception as e:
-            logger.error(f"Erro ao salvar domínio: {e}")
+            logger.error(f"Erro ao salvar domínio {domain_data.get('domain', '?')}: {e}")
             conn.rollback()
             raise
         finally:

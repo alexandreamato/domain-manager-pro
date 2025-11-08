@@ -400,9 +400,26 @@ class DomainCollector:
 
         logger.info(f"Coletando informações de {domain}")
 
+        # Inicializa resultado com TODOS os campos esperados
         result = {
             'domain': domain,
-            'observations': ''
+            'status_code': None,
+            'server': None,
+            'cloud_provider': None,
+            'cms_detected': None,
+            'cms_version': None,
+            'ga4_code': None,
+            'fb_pixel': None,
+            'ip_address': None,
+            'registrar': None,
+            'ssl_expires_days': None,
+            'dns_servers': [],
+            'whois_created': None,
+            'whois_expires': None,
+            'is_spam': 0,
+            'observations': '',
+            'raw_headers': {},
+            'raw_metadata': {}
         }
 
         # Coleta HTTP
@@ -433,6 +450,8 @@ class DomainCollector:
         # Spam check
         if result.get('ip_address'):
             result['is_spam'] = 1 if self.check_spam_blacklist(result['ip_address']) else 0
+        else:
+            result['is_spam'] = 0
 
         logger.info(f"Informações de {domain} coletadas com sucesso")
 

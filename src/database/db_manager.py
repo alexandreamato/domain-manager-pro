@@ -116,6 +116,20 @@ class DatabaseManager:
         except:
             pass
 
+        # Adiciona índices para performance
+        try:
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_domain ON domains(domain)")
+        except:
+            pass
+        try:
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_is_hidden ON domains(is_hidden)")
+        except:
+            pass
+        try:
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_last_checked ON domains(last_checked)")
+        except:
+            pass
+
         # Tabela de configurações
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS settings (

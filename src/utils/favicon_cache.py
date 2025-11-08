@@ -8,6 +8,7 @@ from pathlib import Path
 from PIL import Image, ImageTk
 import tkinter as tk
 import logging
+import threading
 
 logger = logging.getLogger(__name__)
 
@@ -30,13 +31,14 @@ class FaviconCache:
         # Favicon padrão (ícone genérico)
         self._default_icon = None
 
-    def get_favicon(self, domain, size=16):
+    def get_favicon(self, domain, size=16, download=False):
         """
-        Obtém o favicon de um domínio
+        Obtém o favicon de um domínio (apenas do cache)
 
         Args:
             domain: Nome do domínio
             size: Tamanho do ícone (16, 32, 64, etc)
+            download: Se True, baixa se não estiver em cache (LENTO!)
 
         Returns:
             PhotoImage do favicon ou None
@@ -63,14 +65,15 @@ class FaviconCache:
                 self._photo_cache[cache_key] = photo
                 return photo
             except Exception as e:
-                logger.warning(f"Erro ao carregar favicon de {domain}: {e}")
+                logger.debug(f"Erro ao carregar favicon de {domain}: {e}")
 
-        # Baixa o favicon
-        if self._download_favicon(domain, filepath):
-            return self.get_favicon(domain, size)  # Tenta novamente após download
+        # Se download=True, baixa síncrono (LENTO!)
+        if download:
+            if self._download_favicon(domain, filepath):
+                return self.get_favicon(domain, size)  # Tenta novamente após download
 
-        # Retorna ícone padrão
-        return self._get_default_icon(size)
+        # Retorna None (sem favicon)
+        return None
 
     def _download_favicon(self, domain, filepath):
         """
@@ -123,18 +126,54 @@ class FaviconCache:
         except:
             return None
 
-    def prefetch_favicons(self, domains):
+    def prefetch_favicons(self, domains, callback=None):
         """
         Pré-carrega favicons de vários domínios em background
 
         Args:
-            domains: Lista de domínios
+            domains: Lista de domínios ou lista de dicts com 'domain'
+            callback: Função chamada após cada download (opcional)
         """
-        import threading
-
         def _prefetch():
-            for domain in domains:
-                self.get_favicon(domain)
+            import time
+
+            # Extrai nomes de domínios se for lista de dicts
+            domain_names = []
+            for d in domains:
+                if isinstance(d, dict):
+                    domain_names.append(d.get('domain', ''))
+                else:
+                    domain_names.append(str(d))
+
+            # Baixa apenas os que não estão em cache
+            to_download = []
+            for domain in domain_names:
+                if not domain:
+                    continue
+                domain = domain.replace('http://', '').replace('https://', '').split('/')[0]
+                filepath = self.cache_dir / f"{domain}.png"
+                if not filepath.exists():
+                    to_download.append(domain)
+
+            logger.info(f"Pré-carregando {len(to_download)} favicons em background...")
+
+            # Baixa com throttling (máximo 10 por segundo)
+            for i, domain in enumerate(to_download):
+                try:
+                    filepath = self.cache_dir / f"{domain}.png"
+                    self._download_favicon(domain, filepath)
+
+                    if callback:
+                        callback(domain)
+
+                    # Throttle para não sobrecarregar
+                    if i % 10 == 0 and i > 0:
+                        time.sleep(0.1)
+
+                except Exception as e:
+                    logger.debug(f"Erro ao pré-carregar favicon de {domain}: {e}")
+
+            logger.info(f"Pré-carregamento de favicons concluído!")
 
         thread = threading.Thread(target=_prefetch, daemon=True)
         thread.start()

@@ -469,6 +469,9 @@ class DomainsTab:
         Args:
             domains: Lista de domínios
         """
+        # Desabilita redesenho para performance
+        self.tree.configure(takefocus=False)
+
         # Limpa tabela
         for item in self.tree.get_children():
             self.tree.delete(item)
@@ -488,6 +491,12 @@ class DomainsTab:
 
         # Insere domínios hierarquicamente
         self._insert_domains_hierarchically(domains)
+
+        # Re-habilita redesenho
+        self.tree.configure(takefocus=True)
+
+        # Pré-carrega favicons em background (não bloqueia UI)
+        self.favicon_cache.prefetch_favicons(domains)
 
     def _insert_domain(self, domain, parent=''):
         """Insere um domínio na tabela"""
@@ -523,8 +532,8 @@ class DomainsTab:
         elif isinstance(status, int) and status >= 400:
             tags.append('error')
 
-        # Obtém favicon
-        favicon = self.favicon_cache.get_favicon(domain.get('domain', ''), size=16)
+        # Obtém favicon do cache (sem download para não travar)
+        favicon = self.favicon_cache.get_favicon(domain.get('domain', ''), size=16, download=False)
 
         # Insere (usa parent se fornecido)
         item_id = self.tree.insert(

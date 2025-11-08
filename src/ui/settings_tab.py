@@ -189,6 +189,35 @@ class SettingsTab:
         )
         moz_help.pack(anchor=tk.W, padx=(20, 0), pady=(0, 5))
 
+        # Wappalyzer API
+        wappalyzer_frame = ttk.Frame(api_frame)
+        wappalyzer_frame.pack(fill=tk.X, pady=5)
+
+        ttk.Label(wappalyzer_frame, text="Wappalyzer API Key:", width=20).pack(side=tk.LEFT)
+
+        self.wappalyzer_var = tk.StringVar(value=self.config.get('api_keys.wappalyzer', ''))
+        wappalyzer_entry = ttk.Entry(wappalyzer_frame, textvariable=self.wappalyzer_var, width=40, show='*')
+        wappalyzer_entry.pack(side=tk.LEFT, padx=(10, 0))
+
+        # WhatCMS API
+        whatcms_frame = ttk.Frame(api_frame)
+        whatcms_frame.pack(fill=tk.X, pady=5)
+
+        ttk.Label(whatcms_frame, text="WhatCMS API Key:", width=20).pack(side=tk.LEFT)
+
+        self.whatcms_var = tk.StringVar(value=self.config.get('api_keys.whatcms', ''))
+        whatcms_entry = ttk.Entry(whatcms_frame, textvariable=self.whatcms_var, width=40, show='*')
+        whatcms_entry.pack(side=tk.LEFT, padx=(10, 0))
+
+        # Instruções CMS APIs
+        cms_help = ttk.Label(
+            api_frame,
+            text="ℹ️ Wappalyzer e WhatCMS melhoram a detecção de CMS",
+            font=('Arial', 8),
+            foreground='#888'
+        )
+        cms_help.pack(anchor=tk.W, padx=(20, 0), pady=(0, 10))
+
         # Seção sobre
         about_frame = ttk.LabelFrame(settings_container, text="Sobre", padding=20)
         about_frame.pack(fill=tk.X, padx=10, pady=10)
@@ -244,6 +273,8 @@ Recursos:
             self.config.set('api_keys.semrush', self.semrush_var.get())
             self.config.set('api_keys.estibot', self.estibot_var.get())
             self.config.set('api_keys.moz', self.moz_var.get())
+            self.config.set('api_keys.wappalyzer', self.wappalyzer_var.get())
+            self.config.set('api_keys.whatcms', self.whatcms_var.get())
 
             # Callback
             if self.on_change_callback:

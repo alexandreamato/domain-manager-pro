@@ -11,6 +11,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import dns.resolver
 import whois
 from OpenSSL import crypto
+from src.collectors.cms_detector import CMSDetector
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +19,7 @@ logger = logging.getLogger(__name__)
 class DomainCollector:
     """Coleta informações completas de um domínio"""
 
-    def __init__(self, timeout=5, max_workers=10, collect_web_seo=False, semrush_api_key=None, moz_api_key=None):
+    def __init__(self, timeout=5, max_workers=10, collect_web_seo=False, semrush_api_key=None, moz_api_key=None, wappalyzer_key=None, whatcms_key=None):
         """
         Inicializa o coletor
 
@@ -28,6 +29,8 @@ class DomainCollector:
             collect_web_seo: Se True, coleta SEO da web (mais lento)
             semrush_api_key: API key do SEMRush (opcional)
             moz_api_key: API key do MOZ (opcional)
+            wappalyzer_key: API key do Wappalyzer (opcional)
+            whatcms_key: API key do WhatCMS (opcional)
         """
         self.timeout = timeout
         self.max_workers = max_workers
@@ -36,6 +39,14 @@ class DomainCollector:
         self.session.headers.update({
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
         })
+
+        # Inicializa CMS detector
+        self.cms_detector = CMSDetector(
+            timeout=timeout,
+            wappalyzer_key=wappalyzer_key,
+            whatcms_key=whatcms_key
+        )
+        logger.info("CMS Detector inicializado")
 
         # Inicializa web SEO collector se necessário
         self.web_seo_collector = None
@@ -180,7 +191,7 @@ class DomainCollector:
 
     def detect_cms(self, response, domain):
         """
-        Detecta o CMS usado pelo site
+        Detecta o CMS usado pelo site usando Wappalyzer, WhatCMS e fallbacks
 
         Args:
             response: Resposta HTTP
@@ -192,64 +203,16 @@ class DomainCollector:
         if not response:
             return None, None
 
-        html = response.text
-        headers = response.headers
+        try:
+            # Usa o novo CMSDetector que tenta Wappalyzer -> WhatCMS -> HTML analysis
+            html_content = response.text if response else None
+            cms_info = self.cms_detector.detect_cms(domain, html_content=html_content)
 
-        cms = None
-        version = None
+            return cms_info['name'], cms_info['version']
 
-        # WordPress
-        if '/wp-content/' in html or '/wp-includes/' in html:
-            cms = 'WordPress'
-            # Tenta detectar versão
-            version_match = re.search(r'wp-content/.*?ver=([0-9.]+)', html)
-            if version_match:
-                version = version_match.group(1)
-
-            # Tenta via meta tag
-            meta_match = re.search(r'<meta name="generator" content="WordPress ([0-9.]+)"', html)
-            if meta_match:
-                version = meta_match.group(1)
-
-        # Joomla
-        elif '/components/com_' in html or 'Joomla!' in html:
-            cms = 'Joomla'
-            meta_match = re.search(r'<meta name="generator" content="Joomla! ([0-9.]+)"', html)
-            if meta_match:
-                version = meta_match.group(1)
-
-        # Drupal
-        elif '/sites/default/' in html or '/misc/drupal.js' in html:
-            cms = 'Drupal'
-            meta_match = re.search(r'<meta name="generator" content="Drupal ([0-9.]+)"', html)
-            if meta_match:
-                version = meta_match.group(1)
-
-        # Shopify
-        elif 'Shopify' in headers.get('X-ShopId', '') or 'cdn.shopify.com' in html:
-            cms = 'Shopify'
-
-        # Wix
-        elif 'X-Wix-' in str(headers) or 'wix.com' in html:
-            cms = 'Wix'
-
-        # Squarespace
-        elif 'squarespace' in html.lower():
-            cms = 'Squarespace'
-
-        # Webflow
-        elif 'webflow' in html.lower():
-            cms = 'Webflow'
-
-        # Ghost
-        elif 'ghost' in headers.get('X-Powered-By', '').lower():
-            cms = 'Ghost'
-
-        # Hugo (gerador estático)
-        elif 'hugo' in headers.get('X-Powered-By', '').lower():
-            cms = 'Hugo'
-
-        return cms, version
+        except Exception as e:
+            logger.error(f"Erro ao detectar CMS para {domain}: {e}")
+            return None, None
 
     def detect_analytics(self, response):
         """

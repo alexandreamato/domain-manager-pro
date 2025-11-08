@@ -35,7 +35,9 @@ class MainWindow:
             max_workers=self.config.get('max_workers', 10),
             collect_web_seo=self.config.get('collect_web_seo', False),
             semrush_api_key=self.config.get('api_keys.semrush', ''),
-            moz_api_key=self.config.get('api_keys.moz', '')
+            moz_api_key=self.config.get('api_keys.moz', ''),
+            wappalyzer_key=self.config.get('api_keys.wappalyzer', ''),
+            whatcms_key=self.config.get('api_keys.whatcms', '')
         )
 
         # Dados
@@ -266,7 +268,9 @@ class MainWindow:
             max_workers=self.config.get('max_workers', 10),
             collect_web_seo=self.config.get('collect_web_seo', False),
             semrush_api_key=self.config.get('api_keys.semrush', ''),
-            moz_api_key=self.config.get('api_keys.moz', '')
+            moz_api_key=self.config.get('api_keys.moz', ''),
+            wappalyzer_key=self.config.get('api_keys.wappalyzer', ''),
+            whatcms_key=self.config.get('api_keys.whatcms', '')
         )
 
         # Atualiza no domains_tab

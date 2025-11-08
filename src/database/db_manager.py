@@ -267,6 +267,56 @@ class DatabaseManager:
             cursor.execute("ALTER TABLE domains ADD COLUMN ip_longitude REAL")
         except:
             pass
+        try:
+            cursor.execute("ALTER TABLE domains ADD COLUMN ip_timezone TEXT")
+        except:
+            pass
+        try:
+            cursor.execute("ALTER TABLE domains ADD COLUMN ip_isp TEXT")
+        except:
+            pass
+        try:
+            cursor.execute("ALTER TABLE domains ADD COLUMN ip_organization TEXT")
+        except:
+            pass
+
+        # Campos de Performance (PageSpeed Insights)
+        try:
+            cursor.execute("ALTER TABLE domains ADD COLUMN performance_score INTEGER")
+        except:
+            pass
+        try:
+            cursor.execute("ALTER TABLE domains ADD COLUMN performance_fcp INTEGER")
+        except:
+            pass
+        try:
+            cursor.execute("ALTER TABLE domains ADD COLUMN performance_lcp INTEGER")
+        except:
+            pass
+        try:
+            cursor.execute("ALTER TABLE domains ADD COLUMN performance_fid INTEGER")
+        except:
+            pass
+        try:
+            cursor.execute("ALTER TABLE domains ADD COLUMN performance_cls REAL")
+        except:
+            pass
+        try:
+            cursor.execute("ALTER TABLE domains ADD COLUMN performance_ttfb INTEGER")
+        except:
+            pass
+        try:
+            cursor.execute("ALTER TABLE domains ADD COLUMN performance_tti INTEGER")
+        except:
+            pass
+        try:
+            cursor.execute("ALTER TABLE domains ADD COLUMN performance_tbt INTEGER")
+        except:
+            pass
+        try:
+            cursor.execute("ALTER TABLE domains ADD COLUMN performance_speed_index INTEGER")
+        except:
+            pass
 
         # Adiciona índices para performance
         try:

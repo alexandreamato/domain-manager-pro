@@ -247,6 +247,25 @@ class SettingsTab:
         )
         security_help.pack(anchor=tk.W, padx=(20, 0), pady=(0, 10))
 
+        # Google PageSpeed Insights API
+        pagespeed_frame = ttk.Frame(api_frame)
+        pagespeed_frame.pack(fill=tk.X, pady=5)
+
+        ttk.Label(pagespeed_frame, text="PageSpeed Insights:", width=20).pack(side=tk.LEFT)
+
+        self.pagespeed_var = tk.StringVar(value=self.config.get('api_keys.pagespeed', ''))
+        pagespeed_entry = ttk.Entry(pagespeed_frame, textvariable=self.pagespeed_var, width=40, show='*')
+        pagespeed_entry.pack(side=tk.LEFT, padx=(10, 0))
+
+        # Instruções PageSpeed
+        pagespeed_help = ttk.Label(
+            api_frame,
+            text="ℹ️ PageSpeed Insights fornece Core Web Vitals (lento, requer collect_web_seo ativo)",
+            font=('Arial', 8),
+            foreground='#888'
+        )
+        pagespeed_help.pack(anchor=tk.W, padx=(20, 0), pady=(0, 10))
+
         # Seção sobre
         about_frame = ttk.LabelFrame(settings_container, text="Sobre", padding=20)
         about_frame.pack(fill=tk.X, padx=10, pady=10)
@@ -306,6 +325,7 @@ Recursos:
             self.config.set('api_keys.whatcms', self.whatcms_var.get())
             self.config.set('api_keys.virustotal', self.virustotal_var.get())
             self.config.set('api_keys.google_safe_browsing', self.gsb_var.get())
+            self.config.set('api_keys.pagespeed', self.pagespeed_var.get())
 
             # Callback
             if self.on_change_callback:

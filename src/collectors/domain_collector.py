@@ -16,6 +16,8 @@ from src.collectors.whois_collector import WhoisCollector
 from src.collectors.dns_collector import DNSCollector
 from src.collectors.ssl_collector import SSLCollector
 from src.collectors.security_collector import SecurityCollector
+from src.collectors.performance_collector import PerformanceCollector
+from src.collectors.geolocation_collector import GeolocationCollector
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +25,7 @@ logger = logging.getLogger(__name__)
 class DomainCollector:
     """Coleta informações completas de um domínio"""
 
-    def __init__(self, timeout=5, max_workers=10, collect_web_seo=False, semrush_api_key=None, moz_api_key=None, wappalyzer_key=None, whatcms_key=None, virustotal_api_key=None, google_safe_browsing_key=None):
+    def __init__(self, timeout=5, max_workers=10, collect_web_seo=False, semrush_api_key=None, moz_api_key=None, wappalyzer_key=None, whatcms_key=None, virustotal_api_key=None, google_safe_browsing_key=None, pagespeed_api_key=None):
         """
         Inicializa o coletor
 
@@ -37,6 +39,7 @@ class DomainCollector:
             whatcms_key: API key do WhatCMS (opcional)
             virustotal_api_key: API key do VirusTotal (opcional)
             google_safe_browsing_key: API key do Google Safe Browsing (opcional)
+            pagespeed_api_key: API key do Google PageSpeed Insights (opcional)
         """
         self.timeout = timeout
         self.max_workers = max_workers
@@ -73,6 +76,17 @@ class DomainCollector:
             google_safe_browsing_key=google_safe_browsing_key
         )
         logger.info("Security Collector inicializado")
+
+        # Inicializa Performance collector
+        self.performance_collector = PerformanceCollector(
+            timeout=timeout * 3,  # PageSpeed pode ser lento
+            pagespeed_api_key=pagespeed_api_key
+        )
+        logger.info("Performance Collector inicializado")
+
+        # Inicializa Geolocation collector
+        self.geolocation_collector = GeolocationCollector(timeout=timeout)
+        logger.info("Geolocation Collector inicializado")
 
         # Inicializa web SEO collector se necessário
         self.web_seo_collector = None
@@ -855,7 +869,20 @@ class DomainCollector:
             'ip_country': None,
             'ip_city': None,
             'ip_latitude': None,
-            'ip_longitude': None
+            'ip_longitude': None,
+            'ip_timezone': None,
+            'ip_isp': None,
+            'ip_organization': None,
+            # Campos Performance
+            'performance_score': None,
+            'performance_fcp': None,
+            'performance_lcp': None,
+            'performance_fid': None,
+            'performance_cls': None,
+            'performance_ttfb': None,
+            'performance_tti': None,
+            'performance_tbt': None,
+            'performance_speed_index': None
         }
 
         # Coleta HTTP
@@ -1046,6 +1073,49 @@ class DomainCollector:
 
         except Exception as e:
             logger.debug(f"Erro ao verificar segurança de {domain}: {e}")
+
+        # Geolocalização (se tiver IP)
+        if result.get('ip_address'):
+            try:
+                logger.debug(f"Obtendo geolocalização do IP {result['ip_address']}...")
+                geo_data = self.geolocation_collector.get_ip_geolocation(result['ip_address'])
+
+                if geo_data.get('country'):
+                    result['ip_country'] = geo_data.get('country')
+                    result['ip_city'] = geo_data.get('city')
+                    result['ip_latitude'] = geo_data.get('latitude')
+                    result['ip_longitude'] = geo_data.get('longitude')
+                    result['ip_timezone'] = geo_data.get('timezone')
+                    result['ip_isp'] = geo_data.get('isp')
+                    result['ip_organization'] = geo_data.get('organization')
+
+                    # Atualiza ASN se disponível e ainda não temos
+                    if geo_data.get('asn') and not result.get('ip_asn'):
+                        result['ip_asn'] = geo_data.get('asn')
+
+            except Exception as e:
+                logger.debug(f"Erro ao obter geolocalização: {e}")
+
+        # Performance (PageSpeed Insights) - OPCIONAL, pode ser lento
+        # Só executa se collect_web_seo estiver ativado para evitar lentidão
+        if self.collect_web_seo:
+            try:
+                logger.debug(f"Obtendo métricas de performance para {domain}...")
+                perf_data = self.performance_collector.get_pagespeed_metrics(domain, strategy='mobile')
+
+                if perf_data.get('performance_score') is not None:
+                    result['performance_score'] = perf_data.get('performance_score')
+                    result['performance_fcp'] = perf_data.get('fcp')
+                    result['performance_lcp'] = perf_data.get('lcp')
+                    result['performance_fid'] = perf_data.get('fid')
+                    result['performance_cls'] = perf_data.get('cls')
+                    result['performance_ttfb'] = perf_data.get('ttfb')
+                    result['performance_tti'] = perf_data.get('tti')
+                    result['performance_tbt'] = perf_data.get('tbt')
+                    result['performance_speed_index'] = perf_data.get('speed_index')
+
+            except Exception as e:
+                logger.debug(f"Erro ao obter performance de {domain}: {e}")
 
         logger.info(f"Informações de {domain} coletadas com sucesso")
 

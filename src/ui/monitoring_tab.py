@@ -101,7 +101,10 @@ class MonitoringTab:
         # 6. SEO e Tráfego
         self.create_seo_tab()
 
-        # 7. Dados Técnicos
+        # 7. Performance
+        self.create_performance_tab()
+
+        # 8. Dados Técnicos
         self.create_technical_tab()
 
         # Carregar lista de domínios
@@ -265,6 +268,22 @@ class MonitoringTab:
         )
         self.seo_text.pack(fill=tk.BOTH, expand=True)
 
+    def create_performance_tab(self):
+        """Cria aba de Performance e Core Web Vitals"""
+        frame = ttk.Frame(self.notebook)
+        self.notebook.add(frame, text="⚡ Performance")
+
+        text_frame = ttk.Frame(frame)
+        text_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+
+        self.performance_text = scrolledtext.ScrolledText(
+            text_frame,
+            wrap=tk.WORD,
+            height=30,
+            font=('Courier', 10)
+        )
+        self.performance_text.pack(fill=tk.BOTH, expand=True)
+
     def create_technical_tab(self):
         """Cria aba de Dados Técnicos"""
         frame = ttk.Frame(self.notebook)
@@ -344,6 +363,7 @@ class MonitoringTab:
             self.update_ssl_display(domain_data)
             self.update_security_display(domain_data)
             self.update_seo_display(domain_data)
+            self.update_performance_display(domain_data)
             self.update_technical_display(domain_data)
             self.update_alerts(domain_data)
 
@@ -773,6 +793,164 @@ class MonitoringTab:
 
         self.seo_text.insert('1.0', '\n'.join(seo_info))
 
+    def update_performance_display(self, data):
+        """Atualiza display de Performance"""
+        self.performance_text.delete('1.0', tk.END)
+
+        perf_info = []
+        perf_info.append("=" * 60)
+        perf_info.append("MÉTRICAS DE PERFORMANCE (PageSpeed Insights)")
+        perf_info.append("=" * 60)
+        perf_info.append("")
+
+        if not data.get('performance_score'):
+            perf_info.append("⚠️ Métricas de performance não disponíveis")
+            perf_info.append("")
+            perf_info.append("Para coletar:")
+            perf_info.append("1. Ative 'Coletar SEO da Web' nas configurações")
+            perf_info.append("2. Configure API key do PageSpeed Insights (opcional mas recomendado)")
+            perf_info.append("3. Re-analise o domínio")
+            self.performance_text.insert('1.0', '\n'.join(perf_info))
+            return
+
+        # Performance Score
+        score = data.get('performance_score', 0)
+        if score >= 90:
+            score_status = "✅ Excelente"
+            score_color = "verde"
+        elif score >= 50:
+            score_status = "⚠️ Precisa melhorar"
+            score_color = "amarelo"
+        else:
+            score_status = "❌ Ruim"
+            score_color = "vermelho"
+
+        perf_info.append(f"Performance Score: {score}/100 ({score_status})")
+        perf_info.append("=" * 60)
+        perf_info.append("")
+
+        # Core Web Vitals
+        perf_info.append("CORE WEB VITALS (Métricas principais do Google):")
+        perf_info.append("")
+
+        # LCP - Largest Contentful Paint
+        lcp = data.get('performance_lcp')
+        if lcp:
+            lcp_sec = lcp / 1000
+            if lcp_sec <= 2.5:
+                lcp_status = "✅ Bom"
+            elif lcp_sec <= 4.0:
+                lcp_status = "⚠️ Precisa melhorar"
+            else:
+                lcp_status = "❌ Ruim"
+
+            perf_info.append(f"LCP (Largest Contentful Paint): {lcp_sec:.2f}s {lcp_status}")
+            perf_info.append("  → Tempo para o maior elemento ser carregado")
+            perf_info.append(f"  → Bom: ≤2.5s | Melhorar: ≤4.0s | Ruim: >4.0s")
+        else:
+            perf_info.append("LCP (Largest Contentful Paint): N/A")
+
+        perf_info.append("")
+
+        # FID - First Input Delay
+        fid = data.get('performance_fid')
+        if fid:
+            if fid <= 100:
+                fid_status = "✅ Bom"
+            elif fid <= 300:
+                fid_status = "⚠️ Precisa melhorar"
+            else:
+                fid_status = "❌ Ruim"
+
+            perf_info.append(f"FID (First Input Delay): {fid}ms {fid_status}")
+            perf_info.append("  → Tempo de resposta à primeira interação")
+            perf_info.append(f"  → Bom: ≤100ms | Melhorar: ≤300ms | Ruim: >300ms")
+        else:
+            perf_info.append("FID (First Input Delay): N/A")
+
+        perf_info.append("")
+
+        # CLS - Cumulative Layout Shift
+        cls = data.get('performance_cls')
+        if cls is not None:
+            if cls <= 0.1:
+                cls_status = "✅ Bom"
+            elif cls <= 0.25:
+                cls_status = "⚠️ Precisa melhorar"
+            else:
+                cls_status = "❌ Ruim"
+
+            perf_info.append(f"CLS (Cumulative Layout Shift): {cls:.3f} {cls_status}")
+            perf_info.append("  → Estabilidade visual (quanto menor, melhor)")
+            perf_info.append(f"  → Bom: ≤0.1 | Melhorar: ≤0.25 | Ruim: >0.25")
+        else:
+            perf_info.append("CLS (Cumulative Layout Shift): N/A")
+
+        perf_info.append("")
+        perf_info.append("=" * 60)
+        perf_info.append("OUTRAS MÉTRICAS:")
+        perf_info.append("")
+
+        # FCP - First Contentful Paint
+        fcp = data.get('performance_fcp')
+        if fcp:
+            fcp_sec = fcp / 1000
+            perf_info.append(f"FCP (First Contentful Paint): {fcp_sec:.2f}s")
+            perf_info.append("  → Tempo para primeiro conteúdo aparecer")
+        else:
+            perf_info.append("FCP (First Contentful Paint): N/A")
+
+        perf_info.append("")
+
+        # TTFB - Time to First Byte
+        ttfb = data.get('performance_ttfb')
+        if ttfb:
+            ttfb_ms = ttfb
+            if ttfb_ms <= 200:
+                ttfb_status = "✅"
+            elif ttfb_ms <= 500:
+                ttfb_status = "⚠️"
+            else:
+                ttfb_status = "❌"
+            perf_info.append(f"TTFB (Time to First Byte): {ttfb_ms}ms {ttfb_status}")
+            perf_info.append("  → Tempo de resposta do servidor")
+        else:
+            perf_info.append("TTFB (Time to First Byte): N/A")
+
+        perf_info.append("")
+
+        # TTI - Time to Interactive
+        tti = data.get('performance_tti')
+        if tti:
+            tti_sec = tti / 1000
+            perf_info.append(f"TTI (Time to Interactive): {tti_sec:.2f}s")
+            perf_info.append("  → Tempo até a página estar totalmente interativa")
+        else:
+            perf_info.append("TTI (Time to Interactive): N/A")
+
+        perf_info.append("")
+
+        # TBT - Total Blocking Time
+        tbt = data.get('performance_tbt')
+        if tbt:
+            perf_info.append(f"TBT (Total Blocking Time): {tbt}ms")
+            perf_info.append("  → Tempo total de bloqueio da thread principal")
+        else:
+            perf_info.append("TBT (Total Blocking Time): N/A")
+
+        perf_info.append("")
+
+        # Speed Index
+        speed_index = data.get('performance_speed_index')
+        if speed_index:
+            si_sec = speed_index / 1000
+            perf_info.append(f"Speed Index: {si_sec:.2f}s")
+            perf_info.append("  → Velocidade de renderização visual")
+        else:
+            perf_info.append("Speed Index: N/A")
+
+        self.performance_text.insert('1.0', '\n'.join(perf_info))
+
     def update_technical_display(self, data):
         """Atualiza display de dados técnicos"""
         self.technical_text.delete('1.0', tk.END)
@@ -816,6 +994,12 @@ class MonitoringTab:
                 tech_info.append(f"  Cidade: {data['ip_city']}")
             if data.get('ip_latitude') and data.get('ip_longitude'):
                 tech_info.append(f"  Coordenadas: {data['ip_latitude']}, {data['ip_longitude']}")
+            if data.get('ip_timezone'):
+                tech_info.append(f"  Timezone: {data['ip_timezone']}")
+            if data.get('ip_isp'):
+                tech_info.append(f"  ISP: {data['ip_isp']}")
+            if data.get('ip_organization'):
+                tech_info.append(f"  Organização: {data['ip_organization']}")
             tech_info.append("")
 
         # Hosting

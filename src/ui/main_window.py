@@ -40,7 +40,8 @@ class MainWindow:
             wappalyzer_key=self.config.get('api_keys.wappalyzer', ''),
             whatcms_key=self.config.get('api_keys.whatcms', ''),
             virustotal_api_key=self.config.get('api_keys.virustotal', ''),
-            google_safe_browsing_key=self.config.get('api_keys.google_safe_browsing', '')
+            google_safe_browsing_key=self.config.get('api_keys.google_safe_browsing', ''),
+            pagespeed_api_key=self.config.get('api_keys.pagespeed', '')
         )
 
         # Dados
@@ -279,7 +280,8 @@ class MainWindow:
             wappalyzer_key=self.config.get('api_keys.wappalyzer', ''),
             whatcms_key=self.config.get('api_keys.whatcms', ''),
             virustotal_api_key=self.config.get('api_keys.virustotal', ''),
-            google_safe_browsing_key=self.config.get('api_keys.google_safe_browsing', '')
+            google_safe_browsing_key=self.config.get('api_keys.google_safe_browsing', ''),
+            pagespeed_api_key=self.config.get('api_keys.pagespeed', '')
         )
 
         # Atualiza no domains_tab

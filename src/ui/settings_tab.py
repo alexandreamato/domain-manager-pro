@@ -1,0 +1,242 @@
+"""Aba de configurações"""
+
+import tkinter as tk
+from tkinter import ttk, messagebox
+import logging
+
+logger = logging.getLogger(__name__)
+
+
+class SettingsTab:
+    """Aba de configurações"""
+
+    def __init__(self, parent, config, on_change_callback):
+        """
+        Inicializa a aba de configurações
+
+        Args:
+            parent: Widget pai (Notebook)
+            config: ConfigManager
+            on_change_callback: Callback para quando configurações mudarem
+        """
+        self.parent = parent
+        self.config = config
+        self.on_change_callback = on_change_callback
+
+        # Criar frame principal
+        self.frame = ttk.Frame(parent)
+        self.create_widgets()
+
+    def create_widgets(self):
+        """Cria os widgets da aba"""
+        # Header
+        header_frame = ttk.Frame(self.frame)
+        header_frame.pack(fill=tk.X, padx=10, pady=10)
+
+        title = ttk.Label(
+            header_frame,
+            text="⚙️ Configurações",
+            font=('Arial', 16, 'bold')
+        )
+        title.pack(side=tk.LEFT)
+
+        # Container com scroll
+        canvas = tk.Canvas(self.frame, bg='#1a1a2e', highlightthickness=0)
+        scrollbar = ttk.Scrollbar(self.frame, orient="vertical", command=canvas.yview)
+
+        settings_container = ttk.Frame(canvas)
+        settings_container.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
+
+        canvas.create_window((0, 0), window=settings_container, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        # Seção de configurações gerais
+        general_frame = ttk.LabelFrame(settings_container, text="Configurações Gerais", padding=20)
+        general_frame.pack(fill=tk.X, padx=10, pady=10)
+
+        # Timeout
+        timeout_frame = ttk.Frame(general_frame)
+        timeout_frame.pack(fill=tk.X, pady=5)
+
+        ttk.Label(timeout_frame, text="Timeout (segundos):", width=30).pack(side=tk.LEFT)
+
+        self.timeout_var = tk.IntVar(value=self.config.get('timeout', 5))
+        timeout_spin = ttk.Spinbox(
+            timeout_frame,
+            from_=1,
+            to=30,
+            textvariable=self.timeout_var,
+            width=10
+        )
+        timeout_spin.pack(side=tk.LEFT, padx=(10, 0))
+
+        # Max workers
+        workers_frame = ttk.Frame(general_frame)
+        workers_frame.pack(fill=tk.X, pady=5)
+
+        ttk.Label(workers_frame, text="Threads paralelas:", width=30).pack(side=tk.LEFT)
+
+        self.workers_var = tk.IntVar(value=self.config.get('max_workers', 10))
+        workers_spin = ttk.Spinbox(
+            workers_frame,
+            from_=1,
+            to=50,
+            textvariable=self.workers_var,
+            width=10
+        )
+        workers_spin.pack(side=tk.LEFT, padx=(10, 0))
+
+        # Auto refresh
+        refresh_frame = ttk.Frame(general_frame)
+        refresh_frame.pack(fill=tk.X, pady=5)
+
+        ttk.Label(refresh_frame, text="Intervalo de atualização (seg):", width=30).pack(side=tk.LEFT)
+
+        self.refresh_var = tk.IntVar(value=self.config.get('auto_refresh_interval', 300))
+        refresh_spin = ttk.Spinbox(
+            refresh_frame,
+            from_=60,
+            to=3600,
+            increment=60,
+            textvariable=self.refresh_var,
+            width=10
+        )
+        refresh_spin.pack(side=tk.LEFT, padx=(10, 0))
+
+        # Seção de API Keys
+        api_frame = ttk.LabelFrame(settings_container, text="API Keys (Opcional)", padding=20)
+        api_frame.pack(fill=tk.X, padx=10, pady=10)
+
+        api_help = ttk.Label(
+            api_frame,
+            text="Configure suas chaves de API para funcionalidades avançadas de SEO",
+            foreground='#aaa'
+        )
+        api_help.pack(anchor=tk.W, pady=(0, 10))
+
+        # SEMrush API
+        semrush_frame = ttk.Frame(api_frame)
+        semrush_frame.pack(fill=tk.X, pady=5)
+
+        ttk.Label(semrush_frame, text="SEMrush API Key:", width=20).pack(side=tk.LEFT)
+
+        self.semrush_var = tk.StringVar(value=self.config.get('api_keys.semrush', ''))
+        semrush_entry = ttk.Entry(semrush_frame, textvariable=self.semrush_var, width=40, show='*')
+        semrush_entry.pack(side=tk.LEFT, padx=(10, 0))
+
+        # Estibot API
+        estibot_frame = ttk.Frame(api_frame)
+        estibot_frame.pack(fill=tk.X, pady=5)
+
+        ttk.Label(estibot_frame, text="Estibot API Key:", width=20).pack(side=tk.LEFT)
+
+        self.estibot_var = tk.StringVar(value=self.config.get('api_keys.estibot', ''))
+        estibot_entry = ttk.Entry(estibot_frame, textvariable=self.estibot_var, width=40, show='*')
+        estibot_entry.pack(side=tk.LEFT, padx=(10, 0))
+
+        # Moz API
+        moz_frame = ttk.Frame(api_frame)
+        moz_frame.pack(fill=tk.X, pady=5)
+
+        ttk.Label(moz_frame, text="Moz API Key:", width=20).pack(side=tk.LEFT)
+
+        self.moz_var = tk.StringVar(value=self.config.get('api_keys.moz', ''))
+        moz_entry = ttk.Entry(moz_frame, textvariable=self.moz_var, width=40, show='*')
+        moz_entry.pack(side=tk.LEFT, padx=(10, 0))
+
+        # Seção sobre
+        about_frame = ttk.LabelFrame(settings_container, text="Sobre", padding=20)
+        about_frame.pack(fill=tk.X, padx=10, pady=10)
+
+        about_text = """
+Domain Manager Pro v1.0.0
+
+Sistema completo de gerenciamento e monitoramento de domínios.
+
+Desenvolvido com Python e Tkinter.
+
+Recursos:
+- Análise automática de domínios
+- Detecção de CMS, Analytics e tecnologias
+- Verificação de SSL, WHOIS e DNS
+- Relatórios e visualizações
+- Exportação em múltiplos formatos
+        """
+
+        about_label = ttk.Label(about_frame, text=about_text.strip(), justify=tk.LEFT)
+        about_label.pack(anchor=tk.W)
+
+        # Botões de ação
+        buttons_frame = ttk.Frame(settings_container)
+        buttons_frame.pack(fill=tk.X, padx=10, pady=20)
+
+        save_btn = ttk.Button(
+            buttons_frame,
+            text="💾 Salvar Configurações",
+            command=self.save_settings
+        )
+        save_btn.pack(side=tk.LEFT, padx=(0, 10))
+
+        reset_btn = ttk.Button(
+            buttons_frame,
+            text="🔄 Restaurar Padrões",
+            command=self.reset_settings
+        )
+        reset_btn.pack(side=tk.LEFT)
+
+    def save_settings(self):
+        """Salva as configurações"""
+        try:
+            # Salva configurações gerais
+            self.config.set('timeout', self.timeout_var.get())
+            self.config.set('max_workers', self.workers_var.get())
+            self.config.set('auto_refresh_interval', self.refresh_var.get())
+
+            # Salva API keys
+            self.config.set('api_keys.semrush', self.semrush_var.get())
+            self.config.set('api_keys.estibot', self.estibot_var.get())
+            self.config.set('api_keys.moz', self.moz_var.get())
+
+            messagebox.showinfo("Sucesso", "Configurações salvas com sucesso!")
+
+            # Callback
+            if self.on_change_callback:
+                self.on_change_callback()
+
+            logger.info("Configurações salvas")
+
+        except Exception as e:
+            logger.error(f"Erro ao salvar configurações: {e}")
+            messagebox.showerror("Erro", f"Erro ao salvar configurações: {e}")
+
+    def reset_settings(self):
+        """Restaura configurações padrão"""
+        if messagebox.askyesno("Confirmar", "Deseja realmente restaurar as configurações padrão?"):
+            try:
+                self.config.reset()
+
+                # Atualiza campos
+                self.timeout_var.set(self.config.get('timeout'))
+                self.workers_var.set(self.config.get('max_workers'))
+                self.refresh_var.set(self.config.get('auto_refresh_interval'))
+                self.semrush_var.set('')
+                self.estibot_var.set('')
+                self.moz_var.set('')
+
+                messagebox.showinfo("Sucesso", "Configurações restauradas!")
+
+                # Callback
+                if self.on_change_callback:
+                    self.on_change_callback()
+
+                logger.info("Configurações restauradas para padrão")
+
+            except Exception as e:
+                logger.error(f"Erro ao restaurar configurações: {e}")
+                messagebox.showerror("Erro", f"Erro ao restaurar configurações: {e}")

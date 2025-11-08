@@ -1,0 +1,11 @@
+# Exemplo de lista de domínios para testar o Domain Manager Pro
+# Você pode importar este arquivo na interface ou copiar os domínios
+
+google.com
+facebook.com
+github.com
+stackoverflow.com
+python.org
+wordpress.org
+shopify.com
+cloudflare.com

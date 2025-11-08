@@ -1,0 +1,20 @@
+# Domain Manager Pro - Dependências
+
+# Requisições HTTP
+requests>=2.31.0
+
+# DNS
+dnspython>=2.4.2
+
+# WHOIS
+python-whois>=0.8.0
+
+# SSL
+pyOpenSSL>=23.3.0
+
+# Gráficos
+matplotlib>=3.8.0
+
+# Utilitários
+urllib3>=2.1.0
+certifi>=2023.11.17

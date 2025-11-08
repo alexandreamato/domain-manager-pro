@@ -53,6 +53,18 @@ class SEOTab:
         )
         refresh_btn.pack(side=tk.RIGHT)
 
+        # Info sobre coleta de SEO
+        info_frame = ttk.Frame(self.frame)
+        info_frame.pack(fill=tk.X, padx=10, pady=(0, 5))
+
+        info_label = ttk.Label(
+            info_frame,
+            text="💡 Dica: Para ver Domain Authority, Page Authority e mais métricas, ative 'Coletar SEO da Web' nas Configurações",
+            font=('Arial', 9),
+            foreground='#aaa'
+        )
+        info_label.pack()
+
         # Frame de filtros
         filter_frame = ttk.Frame(self.frame)
         filter_frame.pack(fill=tk.X, padx=10, pady=(0, 10))
@@ -164,15 +176,13 @@ class SEOTab:
         # Armazena dados
         self.current_data = domains
 
-        # Filtra apenas domínios com informações de SEO
-        seo_domains = [d for d in domains if d.get('seo_score') is not None]
-
-        # Popula
-        for domain in seo_domains:
+        # Mostra TODOS os domínios (mesmo sem dados completos de SEO)
+        # Isso permite ver o que foi coletado mesmo sem web SEO ativo
+        for domain in domains:
             self._insert_domain(domain)
 
         # Atualiza estatísticas
-        self._update_stats(seo_domains)
+        self._update_stats(domains)
 
     def _insert_domain(self, domain):
         """Insere um domínio na tabela"""
@@ -245,19 +255,16 @@ class SEOTab:
         # Filtra dados
         filtered = []
         for domain in self.current_data:
-            # Só mostra domínios com SEO
-            if domain.get('seo_score') is None:
-                continue
-
             # Filtro de busca
             if search_term:
                 domain_name = domain.get('domain', '').lower()
                 if search_term not in domain_name:
                     continue
 
-            # Filtro de qualidade
+            # Filtro de qualidade (só aplica se tiver seo_score)
             if quality_filter != "Todos":
                 seo_score = domain.get('seo_score')
+                # Se não tem seo_score, não mostra quando filtro ativo
                 if seo_score is None:
                     continue
 

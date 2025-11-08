@@ -327,6 +327,22 @@ class DomainCollector:
         Returns:
             Texto da resposta WHOIS
         """
+        # Validação de entrada
+        if not server or not query:
+            logger.warning(f"Servidor ou query vazios: server={server}, query={query}")
+            return ""
+
+        if not isinstance(server, str) or not isinstance(query, str):
+            logger.warning(f"Servidor ou query com tipo inválido: server={type(server)}, query={type(query)}")
+            return ""
+
+        server = server.strip()
+        query = query.strip()
+
+        if not server or not query:
+            logger.warning(f"Servidor ou query vazios após strip: server={server}, query={query}")
+            return ""
+
         try:
             s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             s.settimeout(timeout)
@@ -340,8 +356,14 @@ class DomainCollector:
                 resp += data
             s.close()
             return resp.decode(errors="ignore")
+        except socket.gaierror as e:
+            logger.warning(f"Servidor WHOIS não encontrado ou inválido: {server} - {e}")
+            return ""
+        except socket.timeout:
+            logger.warning(f"Timeout na consulta WHOIS para {query} em {server}")
+            return ""
         except Exception as e:
-            logger.error(f"Erro na consulta socket WHOIS para {query} em {server}: {e}")
+            logger.warning(f"Erro na consulta socket WHOIS para {query} em {server}: {e}")
             return ""
 
     def _find_whois_server(self, domain):

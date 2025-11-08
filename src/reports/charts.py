@@ -31,8 +31,8 @@ class ChartGenerator:
         if not cms_count:
             return None
 
-        # Cria figura
-        fig, ax = plt.subplots(figsize=(8, 6), facecolor='#1a1a2e')
+        # Cria figura (tamanho reduzido para melhor visualização)
+        fig, ax = plt.subplots(figsize=(5, 4), facecolor='#1a1a2e')
         ax.set_facecolor('#16213e')
 
         # Gráfico de pizza
@@ -42,10 +42,10 @@ class ChartGenerator:
             labels=cms_count.keys(),
             autopct='%1.1f%%',
             colors=colors,
-            textprops={'color': 'white'}
+            textprops={'color': 'white', 'fontsize': 9}
         )
 
-        ax.set_title('Distribuição de CMS', color='white', fontsize=14, fontweight='bold')
+        ax.set_title('Distribuição de CMS', color='white', fontsize=12, fontweight='bold')
 
         # Canvas Tkinter
         canvas = FigureCanvasTkAgg(fig, parent_frame)
@@ -79,8 +79,8 @@ class ChartGenerator:
             else:
                 status_groups['Outros'] += 1
 
-        # Cria figura
-        fig, ax = plt.subplots(figsize=(8, 6), facecolor='#1a1a2e')
+        # Cria figura (tamanho reduzido)
+        fig, ax = plt.subplots(figsize=(5, 4), facecolor='#1a1a2e')
         ax.set_facecolor('#16213e')
 
         # Gráfico de barras
@@ -93,9 +93,9 @@ class ChartGenerator:
             linewidth=1.5
         )
 
-        ax.set_title('Distribuição de Status HTTP', color='white', fontsize=14, fontweight='bold')
-        ax.set_ylabel('Quantidade', color='white')
-        ax.tick_params(colors='white')
+        ax.set_title('Distribuição de Status HTTP', color='white', fontsize=12, fontweight='bold')
+        ax.set_ylabel('Quantidade', color='white', fontsize=9)
+        ax.tick_params(colors='white', labelsize=8)
 
         for spine in ax.spines.values():
             spine.set_color('#0f3460')
@@ -131,8 +131,8 @@ class ChartGenerator:
         # Limita aos top 10
         sorted_providers = sorted(provider_count.items(), key=lambda x: x[1], reverse=True)[:10]
 
-        # Cria figura
-        fig, ax = plt.subplots(figsize=(10, 6), facecolor='#1a1a2e')
+        # Cria figura (tamanho reduzido)
+        fig, ax = plt.subplots(figsize=(6, 4), facecolor='#1a1a2e')
         ax.set_facecolor('#16213e')
 
         # Gráfico de barras horizontais
@@ -141,9 +141,9 @@ class ChartGenerator:
 
         bars = ax.barh(providers, counts, color='#00adb5', edgecolor='white', linewidth=1.5)
 
-        ax.set_title('Provedores Cloud Mais Usados', color='white', fontsize=14, fontweight='bold')
-        ax.set_xlabel('Quantidade', color='white')
-        ax.tick_params(colors='white')
+        ax.set_title('Provedores Cloud Mais Usados', color='white', fontsize=12, fontweight='bold')
+        ax.set_xlabel('Quantidade', color='white', fontsize=9)
+        ax.tick_params(colors='white', labelsize=8)
 
         for spine in ax.spines.values():
             spine.set_color('#0f3460')
@@ -188,8 +188,8 @@ class ChartGenerator:
             else:
                 ssl_ranges['> 180 dias'] += 1
 
-        # Cria figura
-        fig, ax = plt.subplots(figsize=(8, 6), facecolor='#1a1a2e')
+        # Cria figura (tamanho reduzido)
+        fig, ax = plt.subplots(figsize=(5, 4), facecolor='#1a1a2e')
         ax.set_facecolor('#16213e')
 
         # Gráfico de barras
@@ -202,9 +202,9 @@ class ChartGenerator:
             linewidth=1.5
         )
 
-        ax.set_title('Expiração de Certificados SSL', color='white', fontsize=14, fontweight='bold')
-        ax.set_ylabel('Quantidade', color='white')
-        ax.tick_params(colors='white', axis='x', rotation=15)
+        ax.set_title('Expiração de Certificados SSL', color='white', fontsize=12, fontweight='bold')
+        ax.set_ylabel('Quantidade', color='white', fontsize=9)
+        ax.tick_params(colors='white', axis='x', rotation=15, labelsize=8)
 
         for spine in ax.spines.values():
             spine.set_color('#0f3460')

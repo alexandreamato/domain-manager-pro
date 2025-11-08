@@ -218,6 +218,35 @@ class SettingsTab:
         )
         cms_help.pack(anchor=tk.W, padx=(20, 0), pady=(0, 10))
 
+        # VirusTotal API
+        virustotal_frame = ttk.Frame(api_frame)
+        virustotal_frame.pack(fill=tk.X, pady=5)
+
+        ttk.Label(virustotal_frame, text="VirusTotal API Key:", width=20).pack(side=tk.LEFT)
+
+        self.virustotal_var = tk.StringVar(value=self.config.get('api_keys.virustotal', ''))
+        virustotal_entry = ttk.Entry(virustotal_frame, textvariable=self.virustotal_var, width=40, show='*')
+        virustotal_entry.pack(side=tk.LEFT, padx=(10, 0))
+
+        # Google Safe Browsing API
+        gsb_frame = ttk.Frame(api_frame)
+        gsb_frame.pack(fill=tk.X, pady=5)
+
+        ttk.Label(gsb_frame, text="Google Safe Browsing:", width=20).pack(side=tk.LEFT)
+
+        self.gsb_var = tk.StringVar(value=self.config.get('api_keys.google_safe_browsing', ''))
+        gsb_entry = ttk.Entry(gsb_frame, textvariable=self.gsb_var, width=40, show='*')
+        gsb_entry.pack(side=tk.LEFT, padx=(10, 0))
+
+        # Instruções Security APIs
+        security_help = ttk.Label(
+            api_frame,
+            text="ℹ️ VirusTotal e Google Safe Browsing verificam segurança e blacklists",
+            font=('Arial', 8),
+            foreground='#888'
+        )
+        security_help.pack(anchor=tk.W, padx=(20, 0), pady=(0, 10))
+
         # Seção sobre
         about_frame = ttk.LabelFrame(settings_container, text="Sobre", padding=20)
         about_frame.pack(fill=tk.X, padx=10, pady=10)
@@ -275,6 +304,8 @@ Recursos:
             self.config.set('api_keys.moz', self.moz_var.get())
             self.config.set('api_keys.wappalyzer', self.wappalyzer_var.get())
             self.config.set('api_keys.whatcms', self.whatcms_var.get())
+            self.config.set('api_keys.virustotal', self.virustotal_var.get())
+            self.config.set('api_keys.google_safe_browsing', self.gsb_var.get())
 
             # Callback
             if self.on_change_callback:

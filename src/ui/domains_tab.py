@@ -582,7 +582,13 @@ class DomainsTab:
             # Filtro de status
             if status_filter != "Todos":
                 status = domain.get('status_code')
-                if status_filter == "OK (200)" and status != 200:
+
+                # Verifica se status é válido
+                if status is None or not isinstance(status, int):
+                    # Se não tem status, só mostra se o filtro for "Erro"
+                    if status_filter != "Erro (4xx/5xx)":
+                        continue
+                elif status_filter == "OK (200)" and status != 200:
                     continue
                 elif status_filter == "Redirect (3xx)" and not (300 <= status < 400):
                     continue

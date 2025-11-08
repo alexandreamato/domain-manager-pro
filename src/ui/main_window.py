@@ -14,6 +14,7 @@ from src.ui.domains_tab import DomainsTab
 from src.ui.seo_tab import SEOTab
 from src.ui.reports_tab import ReportsTab
 from src.ui.settings_tab import SettingsTab
+from src.ui.monitoring_tab import MonitoringTab
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +38,9 @@ class MainWindow:
             semrush_api_key=self.config.get('api_keys.semrush', ''),
             moz_api_key=self.config.get('api_keys.moz', ''),
             wappalyzer_key=self.config.get('api_keys.wappalyzer', ''),
-            whatcms_key=self.config.get('api_keys.whatcms', '')
+            whatcms_key=self.config.get('api_keys.whatcms', ''),
+            virustotal_api_key=self.config.get('api_keys.virustotal', ''),
+            google_safe_browsing_key=self.config.get('api_keys.google_safe_browsing', '')
         )
 
         # Dados
@@ -122,9 +125,13 @@ class MainWindow:
         )
         self.notebook.add(self.domains_tab.frame, text="🏠 Domínios")
 
+        # Aba de Monitoramento
+        self.monitoring_tab = MonitoringTab(self.notebook, self.db, self.collector)
+        self.notebook.add(self.monitoring_tab.frame, text="🔍 Monitoramento")
+
         # Aba de SEO Dashboard
         self.seo_tab = SEOTab(self.notebook, self.db)
-        self.notebook.add(self.seo_tab.frame, text="🔍 SEO Dashboard")
+        self.notebook.add(self.seo_tab.frame, text="📈 SEO Dashboard")
 
         # Aba de Relatórios
         self.reports_tab = ReportsTab(self.notebook, self.db)
@@ -270,7 +277,9 @@ class MainWindow:
             semrush_api_key=self.config.get('api_keys.semrush', ''),
             moz_api_key=self.config.get('api_keys.moz', ''),
             wappalyzer_key=self.config.get('api_keys.wappalyzer', ''),
-            whatcms_key=self.config.get('api_keys.whatcms', '')
+            whatcms_key=self.config.get('api_keys.whatcms', ''),
+            virustotal_api_key=self.config.get('api_keys.virustotal', ''),
+            google_safe_browsing_key=self.config.get('api_keys.google_safe_browsing', '')
         )
 
         # Atualiza no domains_tab

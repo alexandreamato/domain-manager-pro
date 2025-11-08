@@ -12,6 +12,10 @@ import dns.resolver
 import whois
 from OpenSSL import crypto
 from src.collectors.cms_detector import CMSDetector
+from src.collectors.whois_collector import WhoisCollector
+from src.collectors.dns_collector import DNSCollector
+from src.collectors.ssl_collector import SSLCollector
+from src.collectors.security_collector import SecurityCollector
 
 logger = logging.getLogger(__name__)
 
@@ -19,7 +23,7 @@ logger = logging.getLogger(__name__)
 class DomainCollector:
     """Coleta informações completas de um domínio"""
 
-    def __init__(self, timeout=5, max_workers=10, collect_web_seo=False, semrush_api_key=None, moz_api_key=None, wappalyzer_key=None, whatcms_key=None):
+    def __init__(self, timeout=5, max_workers=10, collect_web_seo=False, semrush_api_key=None, moz_api_key=None, wappalyzer_key=None, whatcms_key=None, virustotal_api_key=None, google_safe_browsing_key=None):
         """
         Inicializa o coletor
 
@@ -31,6 +35,8 @@ class DomainCollector:
             moz_api_key: API key do MOZ (opcional)
             wappalyzer_key: API key do Wappalyzer (opcional)
             whatcms_key: API key do WhatCMS (opcional)
+            virustotal_api_key: API key do VirusTotal (opcional)
+            google_safe_browsing_key: API key do Google Safe Browsing (opcional)
         """
         self.timeout = timeout
         self.max_workers = max_workers
@@ -47,6 +53,26 @@ class DomainCollector:
             whatcms_key=whatcms_key
         )
         logger.info("CMS Detector inicializado")
+
+        # Inicializa WHOIS collector
+        self.whois_collector = WhoisCollector(timeout=timeout)
+        logger.info("WHOIS Collector inicializado")
+
+        # Inicializa DNS collector
+        self.dns_collector = DNSCollector(timeout=timeout)
+        logger.info("DNS Collector inicializado")
+
+        # Inicializa SSL collector
+        self.ssl_collector = SSLCollector(timeout=timeout)
+        logger.info("SSL Collector inicializado")
+
+        # Inicializa Security collector
+        self.security_collector = SecurityCollector(
+            timeout=timeout,
+            virustotal_api_key=virustotal_api_key,
+            google_safe_browsing_key=google_safe_browsing_key
+        )
+        logger.info("Security Collector inicializado")
 
         # Inicializa web SEO collector se necessário
         self.web_seo_collector = None
@@ -788,7 +814,48 @@ class DomainCollector:
             'raw_metadata': {},
             'redirect_count': 0,
             'discovered_subdomains': [],
-            'estimated_annual_cost': None
+            'estimated_annual_cost': None,
+            # Novos campos WHOIS
+            'whois_updated': None,
+            'whois_status': None,
+            'whois_nameservers': None,
+            'whois_registrant_name': None,
+            'whois_registrant_org': None,
+            'days_until_expiration': None,
+            # Campos DNS
+            'dns_a_records': None,
+            'dns_mx_records': None,
+            'dns_txt_records': None,
+            'dns_ns_records': None,
+            # Campos email auth
+            'spf_record': None,
+            'spf_valid': 0,
+            'dmarc_record': None,
+            'dmarc_policy': None,
+            'dkim_configured': 0,
+            # Campos SSL
+            'ssl_issuer': None,
+            'ssl_valid_from': None,
+            'ssl_valid_until': None,
+            'ssl_san_domains': None,
+            'ssl_is_valid': 0,
+            'ssl_chain_valid': 0,
+            'ssl_signature_algorithm': None,
+            # Campos segurança
+            'virustotal_malicious': 0,
+            'virustotal_suspicious': 0,
+            'virustotal_reputation': 0,
+            'gsb_is_safe': 1,
+            'gsb_threats': None,
+            'blacklist_count': 0,
+            'reputation_score': 0,
+            # Campos IP
+            'ip_reverse_dns': None,
+            'ip_asn': None,
+            'ip_country': None,
+            'ip_city': None,
+            'ip_latitude': None,
+            'ip_longitude': None
         }
 
         # Coleta HTTP
@@ -859,6 +926,126 @@ class DomainCollector:
                 logger.info(f"SEO da web coletado para {domain}")
             except Exception as e:
                 logger.error(f"Erro ao coletar SEO da web de {domain}: {e}")
+
+        # === NOVOS COLETORES DE MONITORAMENTO ===
+
+        # WHOIS detalhado (usando novo coletor)
+        try:
+            logger.debug(f"Coletando dados WHOIS detalhados para {domain}...")
+            whois_data = self.whois_collector.get_whois_data(domain)
+            if whois_data.get('updated_date'):
+                result['whois_updated'] = whois_data['updated_date']
+            if whois_data.get('status'):
+                result['whois_status'] = whois_data['status']
+            if whois_data.get('name_servers'):
+                result['whois_nameservers'] = whois_data['name_servers']
+            if whois_data.get('registrant_name'):
+                result['whois_registrant_name'] = whois_data['registrant_name']
+            if whois_data.get('registrant_org'):
+                result['whois_registrant_org'] = whois_data['registrant_org']
+            if whois_data.get('days_until_expiration') is not None:
+                result['days_until_expiration'] = whois_data['days_until_expiration']
+            if whois_data.get('domain_age_days') is not None:
+                result['domain_age_days'] = whois_data['domain_age_days']
+        except Exception as e:
+            logger.debug(f"Erro ao coletar WHOIS detalhado de {domain}: {e}")
+
+        # DNS records completos
+        try:
+            logger.debug(f"Coletando registros DNS para {domain}...")
+            dns_data = self.dns_collector.get_dns_records(domain)
+            import json
+            if dns_data.get('a_records'):
+                result['dns_a_records'] = json.dumps(dns_data['a_records'])
+            if dns_data.get('mx_records'):
+                result['dns_mx_records'] = json.dumps(dns_data['mx_records'])
+            if dns_data.get('txt_records'):
+                result['dns_txt_records'] = json.dumps(dns_data['txt_records'])
+            if dns_data.get('ns_records'):
+                result['dns_ns_records'] = json.dumps(dns_data['ns_records'])
+        except Exception as e:
+            logger.debug(f"Erro ao coletar DNS de {domain}: {e}")
+
+        # Autenticação de email (SPF, DMARC, DKIM)
+        try:
+            logger.debug(f"Verificando autenticação de email para {domain}...")
+            email_auth = self.dns_collector.check_email_authentication(domain)
+
+            if email_auth.get('spf', {}).get('configured'):
+                result['spf_record'] = email_auth['spf'].get('record')
+                result['spf_valid'] = 1 if email_auth['spf'].get('valid') else 0
+
+            if email_auth.get('dmarc', {}).get('configured'):
+                result['dmarc_record'] = email_auth['dmarc'].get('record')
+                result['dmarc_policy'] = email_auth['dmarc'].get('policy')
+
+            if email_auth.get('dkim', {}).get('configured'):
+                result['dkim_configured'] = 1
+        except Exception as e:
+            logger.debug(f"Erro ao verificar autenticação de email de {domain}: {e}")
+
+        # SSL/TLS detalhado
+        try:
+            logger.debug(f"Coletando informações SSL detalhadas para {domain}...")
+            ssl_data = self.ssl_collector.get_ssl_info(domain)
+
+            if ssl_data.get('has_ssl'):
+                result['ssl_issuer'] = ssl_data.get('issuer')
+                result['ssl_valid_from'] = ssl_data.get('valid_from')
+                result['ssl_valid_until'] = ssl_data.get('valid_until')
+                result['ssl_is_valid'] = 1 if ssl_data.get('is_valid') else 0
+                result['ssl_signature_algorithm'] = ssl_data.get('signature_algorithm')
+
+                if ssl_data.get('san_domains'):
+                    import json
+                    result['ssl_san_domains'] = json.dumps(ssl_data['san_domains'])
+
+                # Verifica cadeia SSL
+                chain_check = self.ssl_collector.verify_ssl_chain(domain)
+                result['ssl_chain_valid'] = 1 if chain_check.get('valid_chain') else 0
+        except Exception as e:
+            logger.debug(f"Erro ao coletar SSL detalhado de {domain}: {e}")
+
+        # Reverse DNS
+        if result.get('ip_address'):
+            try:
+                reverse_dns = self.dns_collector.get_reverse_dns(result['ip_address'])
+                if reverse_dns:
+                    result['ip_reverse_dns'] = reverse_dns
+            except Exception as e:
+                logger.debug(f"Erro ao obter reverse DNS: {e}")
+
+        # Blacklists (VirusTotal, Google Safe Browsing)
+        try:
+            logger.debug(f"Verificando blacklists e segurança para {domain}...")
+
+            # VirusTotal
+            vt_result = self.security_collector.check_virustotal(domain)
+            if vt_result.get('scanned'):
+                result['virustotal_malicious'] = vt_result.get('malicious_count', 0)
+                result['virustotal_suspicious'] = vt_result.get('suspicious_count', 0)
+                result['virustotal_reputation'] = vt_result.get('reputation', 0)
+
+            # Google Safe Browsing
+            gsb_result = self.security_collector.check_google_safe_browsing(domain)
+            if gsb_result.get('scanned'):
+                result['gsb_is_safe'] = 1 if gsb_result.get('is_safe') else 0
+                if gsb_result.get('threat_types'):
+                    import json
+                    result['gsb_threats'] = json.dumps(gsb_result['threat_types'])
+
+            # Blacklists públicas (DNSBL) usando IP
+            if result.get('ip_address'):
+                bl_result = self.security_collector.check_public_blacklists(result['ip_address'])
+                if bl_result.get('checked'):
+                    result['blacklist_count'] = bl_result.get('total_blacklisted', 0)
+
+            # Score geral de reputação
+            reputation = self.security_collector.check_domain_reputation(domain)
+            result['reputation_score'] = reputation.get('reputation_score', 0)
+
+        except Exception as e:
+            logger.debug(f"Erro ao verificar segurança de {domain}: {e}")
 
         logger.info(f"Informações de {domain} coletadas com sucesso")
 

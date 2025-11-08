@@ -116,6 +116,158 @@ class DatabaseManager:
         except:
             pass
 
+        # Novos campos de monitoramento - WHOIS
+        try:
+            cursor.execute("ALTER TABLE domains ADD COLUMN whois_updated TEXT")
+        except:
+            pass
+        try:
+            cursor.execute("ALTER TABLE domains ADD COLUMN whois_status TEXT")
+        except:
+            pass
+        try:
+            cursor.execute("ALTER TABLE domains ADD COLUMN whois_nameservers TEXT")
+        except:
+            pass
+        try:
+            cursor.execute("ALTER TABLE domains ADD COLUMN whois_registrant_name TEXT")
+        except:
+            pass
+        try:
+            cursor.execute("ALTER TABLE domains ADD COLUMN whois_registrant_org TEXT")
+        except:
+            pass
+        try:
+            cursor.execute("ALTER TABLE domains ADD COLUMN days_until_expiration INTEGER")
+        except:
+            pass
+
+        # Campos DNS
+        try:
+            cursor.execute("ALTER TABLE domains ADD COLUMN dns_a_records TEXT")
+        except:
+            pass
+        try:
+            cursor.execute("ALTER TABLE domains ADD COLUMN dns_mx_records TEXT")
+        except:
+            pass
+        try:
+            cursor.execute("ALTER TABLE domains ADD COLUMN dns_txt_records TEXT")
+        except:
+            pass
+        try:
+            cursor.execute("ALTER TABLE domains ADD COLUMN dns_ns_records TEXT")
+        except:
+            pass
+
+        # Campos de autenticação de email
+        try:
+            cursor.execute("ALTER TABLE domains ADD COLUMN spf_record TEXT")
+        except:
+            pass
+        try:
+            cursor.execute("ALTER TABLE domains ADD COLUMN spf_valid INTEGER DEFAULT 0")
+        except:
+            pass
+        try:
+            cursor.execute("ALTER TABLE domains ADD COLUMN dmarc_record TEXT")
+        except:
+            pass
+        try:
+            cursor.execute("ALTER TABLE domains ADD COLUMN dmarc_policy TEXT")
+        except:
+            pass
+        try:
+            cursor.execute("ALTER TABLE domains ADD COLUMN dkim_configured INTEGER DEFAULT 0")
+        except:
+            pass
+
+        # Campos SSL/TLS
+        try:
+            cursor.execute("ALTER TABLE domains ADD COLUMN ssl_issuer TEXT")
+        except:
+            pass
+        try:
+            cursor.execute("ALTER TABLE domains ADD COLUMN ssl_valid_from TEXT")
+        except:
+            pass
+        try:
+            cursor.execute("ALTER TABLE domains ADD COLUMN ssl_valid_until TEXT")
+        except:
+            pass
+        try:
+            cursor.execute("ALTER TABLE domains ADD COLUMN ssl_san_domains TEXT")
+        except:
+            pass
+        try:
+            cursor.execute("ALTER TABLE domains ADD COLUMN ssl_is_valid INTEGER DEFAULT 0")
+        except:
+            pass
+        try:
+            cursor.execute("ALTER TABLE domains ADD COLUMN ssl_chain_valid INTEGER DEFAULT 0")
+        except:
+            pass
+        try:
+            cursor.execute("ALTER TABLE domains ADD COLUMN ssl_signature_algorithm TEXT")
+        except:
+            pass
+
+        # Campos de segurança/blacklists
+        try:
+            cursor.execute("ALTER TABLE domains ADD COLUMN virustotal_malicious INTEGER DEFAULT 0")
+        except:
+            pass
+        try:
+            cursor.execute("ALTER TABLE domains ADD COLUMN virustotal_suspicious INTEGER DEFAULT 0")
+        except:
+            pass
+        try:
+            cursor.execute("ALTER TABLE domains ADD COLUMN virustotal_reputation INTEGER DEFAULT 0")
+        except:
+            pass
+        try:
+            cursor.execute("ALTER TABLE domains ADD COLUMN gsb_is_safe INTEGER DEFAULT 1")
+        except:
+            pass
+        try:
+            cursor.execute("ALTER TABLE domains ADD COLUMN gsb_threats TEXT")
+        except:
+            pass
+        try:
+            cursor.execute("ALTER TABLE domains ADD COLUMN blacklist_count INTEGER DEFAULT 0")
+        except:
+            pass
+        try:
+            cursor.execute("ALTER TABLE domains ADD COLUMN reputation_score INTEGER DEFAULT 0")
+        except:
+            pass
+
+        # Campos de IP/Geolocalização
+        try:
+            cursor.execute("ALTER TABLE domains ADD COLUMN ip_reverse_dns TEXT")
+        except:
+            pass
+        try:
+            cursor.execute("ALTER TABLE domains ADD COLUMN ip_asn TEXT")
+        except:
+            pass
+        try:
+            cursor.execute("ALTER TABLE domains ADD COLUMN ip_country TEXT")
+        except:
+            pass
+        try:
+            cursor.execute("ALTER TABLE domains ADD COLUMN ip_city TEXT")
+        except:
+            pass
+        try:
+            cursor.execute("ALTER TABLE domains ADD COLUMN ip_latitude REAL")
+        except:
+            pass
+        try:
+            cursor.execute("ALTER TABLE domains ADD COLUMN ip_longitude REAL")
+        except:
+            pass
+
         # Adiciona índices para performance
         try:
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_domain ON domains(domain)")

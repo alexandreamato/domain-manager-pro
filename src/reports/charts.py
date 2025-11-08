@@ -70,7 +70,9 @@ class ChartGenerator:
 
         for domain in domains:
             status = domain.get('status_code')
-            if status == 200:
+            if status is None:
+                status_groups['Outros'] += 1
+            elif status == 200:
                 status_groups['OK (200)'] += 1
             elif 300 <= status < 400:
                 status_groups['Redirect (3xx)'] += 1

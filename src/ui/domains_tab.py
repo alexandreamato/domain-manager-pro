@@ -161,6 +161,12 @@ class DomainsTab:
         refresh_btn = ttk.Button(tools_frame, text="🔄 Atualizar", command=self.refresh_selected)
         refresh_btn.pack(side=tk.LEFT, padx=(0, 5))
 
+        hide_btn = ttk.Button(tools_frame, text="🙈 Ocultar", command=self.hide_selected)
+        hide_btn.pack(side=tk.LEFT, padx=(0, 5))
+
+        show_hidden_btn = ttk.Button(tools_frame, text="📂 Ver Ocultos", command=self.show_hidden_domains)
+        show_hidden_btn.pack(side=tk.LEFT, padx=(0, 5))
+
         delete_btn = ttk.Button(tools_frame, text="❌ Remover", command=self.delete_selected)
         delete_btn.pack(side=tk.LEFT)
 
@@ -682,6 +688,191 @@ OBSERVAÇÕES: {domain_data.get('observations', '-')}
         except Exception as e:
             logger.error(f"Erro ao exportar: {e}")
             messagebox.showerror("Erro", f"Erro ao exportar: {e}")
+
+    def hide_selected(self):
+        """Oculta os domínios selecionados"""
+        selection = self.tree.selection()
+        if not selection:
+            messagebox.showwarning("Aviso", "Selecione pelo menos um domínio para ocultar!")
+            return
+
+        # Confirma ação
+        count = len(selection)
+        if not messagebox.askyesno(
+            "Confirmar",
+            f"Deseja ocultar {count} domínio(s) selecionado(s)?\n\n"
+            "Os domínios ocultos não aparecerão mais na lista, mas podem ser restaurados usando 'Ver Ocultos'."
+        ):
+            return
+
+        try:
+            # Oculta cada domínio
+            for item in selection:
+                values = self.tree.item(item)['values']
+                domain_name = values[0]
+
+                # Oculta no banco
+                self.db.hide_domain(domain_name)
+
+            # Atualiza UI
+            self.load_domains()
+
+            messagebox.showinfo("Sucesso", f"{count} domínio(s) ocultado(s) com sucesso!")
+
+        except Exception as e:
+            logger.error(f"Erro ao ocultar domínios: {e}")
+            messagebox.showerror("Erro", f"Erro ao ocultar domínios: {e}")
+
+    def show_hidden_domains(self):
+        """Mostra janela com domínios ocultos"""
+        try:
+            hidden = self.db.get_hidden_domains()
+
+            if not hidden:
+                messagebox.showinfo("Domínios Ocultos", "Nenhum domínio oculto encontrado!")
+                return
+
+            # Cria janela de diálogo
+            dialog = tk.Toplevel(self.frame)
+            dialog.title("Domínios Ocultos")
+            dialog.geometry("800x600")
+            dialog.configure(bg='#1a1a2e')
+
+            # Header
+            header = ttk.Label(
+                dialog,
+                text=f"📂 Domínios Ocultos ({len(hidden)})",
+                font=('Arial', 14, 'bold')
+            )
+            header.pack(pady=10)
+
+            # Frame da lista
+            list_frame = ttk.Frame(dialog)
+            list_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=(0, 10))
+
+            # Scrollbars
+            vsb = ttk.Scrollbar(list_frame, orient="vertical")
+            hsb = ttk.Scrollbar(list_frame, orient="horizontal")
+
+            # Treeview
+            columns = ('domain', 'status', 'last_checked')
+            tree = ttk.Treeview(
+                list_frame,
+                columns=columns,
+                show='tree headings',
+                yscrollcommand=vsb.set,
+                xscrollcommand=hsb.set,
+                selectmode='extended'
+            )
+
+            vsb.config(command=tree.yview)
+            hsb.config(command=tree.xview)
+
+            # Configurar colunas
+            tree.column('#0', width=0, stretch=False)
+            tree.heading('#0', text='')
+
+            tree.column('domain', width=400, anchor='w')
+            tree.heading('domain', text='Domínio')
+
+            tree.column('status', width=100, anchor='center')
+            tree.heading('status', text='Status')
+
+            tree.column('last_checked', width=200, anchor='center')
+            tree.heading('last_checked', text='Última Verificação')
+
+            # Popula lista
+            for domain in hidden:
+                status = domain.get('status_code', '-')
+                last_checked = domain.get('last_checked', '-')
+
+                if last_checked and last_checked != '-':
+                    try:
+                        dt = datetime.fromisoformat(str(last_checked))
+                        last_checked = dt.strftime('%d/%m/%Y %H:%M')
+                    except:
+                        pass
+
+                tree.insert('', tk.END, values=(
+                    domain.get('domain', ''),
+                    status,
+                    last_checked
+                ))
+
+            # Grid
+            tree.grid(row=0, column=0, sticky='nsew')
+            vsb.grid(row=0, column=1, sticky='ns')
+            hsb.grid(row=1, column=0, sticky='ew')
+
+            list_frame.grid_rowconfigure(0, weight=1)
+            list_frame.grid_columnconfigure(0, weight=1)
+
+            # Botões
+            buttons_frame = ttk.Frame(dialog)
+            buttons_frame.pack(fill=tk.X, padx=10, pady=(0, 10))
+
+            def restore_selected():
+                selection = tree.selection()
+                if not selection:
+                    messagebox.showwarning("Aviso", "Selecione domínios para restaurar!")
+                    return
+
+                count = len(selection)
+                if messagebox.askyesno("Confirmar", f"Restaurar {count} domínio(s)?"):
+                    for item in selection:
+                        values = tree.item(item)['values']
+                        domain_name = values[0]
+                        self.db.unhide_domain(domain_name)
+                        tree.delete(item)
+
+                    self.load_domains()  # Atualiza lista principal
+                    messagebox.showinfo("Sucesso", f"{count} domínio(s) restaurado(s)!")
+
+                    # Fecha se não sobrou nada
+                    if not tree.get_children():
+                        dialog.destroy()
+
+            def delete_selected():
+                selection = tree.selection()
+                if not selection:
+                    messagebox.showwarning("Aviso", "Selecione domínios para remover!")
+                    return
+
+                count = len(selection)
+                if messagebox.askyesno(
+                    "ATENÇÃO",
+                    f"Tem certeza que deseja REMOVER PERMANENTEMENTE {count} domínio(s)?\n\n"
+                    "Esta ação NÃO pode ser desfeita!"
+                ):
+                    for item in selection:
+                        values = tree.item(item)['values']
+                        domain_name = values[0]
+                        self.db.delete_domain(domain_name)
+                        tree.delete(item)
+
+                    messagebox.showinfo("Sucesso", f"{count} domínio(s) removido(s)!")
+
+                    # Fecha se não sobrou nada
+                    if not tree.get_children():
+                        dialog.destroy()
+
+            restore_btn = ttk.Button(buttons_frame, text="✅ Restaurar", command=restore_selected)
+            restore_btn.pack(side=tk.LEFT, padx=5)
+
+            delete_btn = ttk.Button(buttons_frame, text="❌ Remover", command=delete_selected)
+            delete_btn.pack(side=tk.LEFT, padx=5)
+
+            close_btn = ttk.Button(buttons_frame, text="Fechar", command=dialog.destroy)
+            close_btn.pack(side=tk.RIGHT, padx=5)
+
+        except Exception as e:
+            logger.error(f"Erro ao exibir domínios ocultos: {e}")
+            messagebox.showerror("Erro", f"Erro ao exibir domínios ocultos: {e}")
+
+    def load_domains(self):
+        """Recarrega domínios do banco"""
+        domains = self.db.get_all_domains(include_hidden=False)
+        self.populate_table(domains)
 
     def refresh_selected(self):
         """Reanalisar domínios selecionados"""

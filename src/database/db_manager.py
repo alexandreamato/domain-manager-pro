@@ -111,6 +111,10 @@ class DatabaseManager:
             cursor.execute("ALTER TABLE domains ADD COLUMN hosting_provider TEXT")
         except:
             pass
+        try:
+            cursor.execute("ALTER TABLE domains ADD COLUMN is_hidden INTEGER DEFAULT 0")
+        except:
+            pass
 
         # Tabela de configurações
         cursor.execute('''
@@ -313,12 +317,24 @@ class DatabaseManager:
 
         return None
 
-    def get_all_domains(self):
-        """Retorna todos os domínios do banco de dados"""
+    def get_all_domains(self, include_hidden=False):
+        """
+        Retorna todos os domínios do banco de dados
+
+        Args:
+            include_hidden: Se True, inclui domínios ocultos. Se False, filtra apenas visíveis.
+
+        Returns:
+            Lista de domínios
+        """
         conn = self.get_connection()
         cursor = conn.cursor()
 
-        cursor.execute('SELECT * FROM domains ORDER BY last_checked DESC')
+        if include_hidden:
+            cursor.execute('SELECT * FROM domains ORDER BY last_checked DESC')
+        else:
+            cursor.execute('SELECT * FROM domains WHERE is_hidden = 0 ORDER BY last_checked DESC')
+
         rows = cursor.fetchall()
 
         columns = [description[0] for description in cursor.description]
@@ -349,6 +365,69 @@ class DatabaseManager:
         conn.close()
 
         logger.info(f"Domínio {domain} removido")
+
+    def hide_domain(self, domain):
+        """
+        Oculta um domínio (marca como is_hidden=1)
+
+        Args:
+            domain: Nome do domínio a ocultar
+        """
+        conn = self.get_connection()
+        cursor = conn.cursor()
+
+        cursor.execute('UPDATE domains SET is_hidden = 1 WHERE domain = ?', (domain,))
+        conn.commit()
+        conn.close()
+
+        logger.info(f"Domínio {domain} ocultado")
+
+    def unhide_domain(self, domain):
+        """
+        Restaura um domínio oculto (marca como is_hidden=0)
+
+        Args:
+            domain: Nome do domínio a restaurar
+        """
+        conn = self.get_connection()
+        cursor = conn.cursor()
+
+        cursor.execute('UPDATE domains SET is_hidden = 0 WHERE domain = ?', (domain,))
+        conn.commit()
+        conn.close()
+
+        logger.info(f"Domínio {domain} restaurado")
+
+    def get_hidden_domains(self):
+        """
+        Retorna todos os domínios ocultos
+
+        Returns:
+            Lista de domínios ocultos
+        """
+        conn = self.get_connection()
+        cursor = conn.cursor()
+
+        cursor.execute('SELECT * FROM domains WHERE is_hidden = 1 ORDER BY last_checked DESC')
+        rows = cursor.fetchall()
+
+        columns = [description[0] for description in cursor.description]
+        conn.close()
+
+        domains = []
+        for row in rows:
+            data = dict(zip(columns, row))
+
+            # Converter JSON
+            if data.get('dns_servers'):
+                try:
+                    data['dns_servers'] = json.loads(data['dns_servers'])
+                except:
+                    pass
+
+            domains.append(data)
+
+        return domains
 
     def save_history_snapshot(self, domain_data):
         """

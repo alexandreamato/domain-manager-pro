@@ -133,12 +133,12 @@ class MainWindow:
         self.notebook.bind('<<NotebookTabChanged>>', self.on_tab_changed)
 
     def load_saved_domains(self):
-        """Carrega domínios salvos do banco de dados"""
+        """Carrega domínios salvos do banco de dados (filtra ocultos)"""
         try:
-            self.domains_data = self.db.get_all_domains()
+            self.domains_data = self.db.get_all_domains(include_hidden=False)
             self.domains_tab.populate_table(self.domains_data)
-            self.update_status(f"Carregados {len(self.domains_data)} domínios")
-            logger.info(f"Carregados {len(self.domains_data)} domínios do banco de dados")
+            self.update_status(f"Carregados {len(self.domains_data)} domínio(s) visível(is)")
+            logger.info(f"Carregados {len(self.domains_data)} domínios visíveis do banco de dados")
         except Exception as e:
             logger.error(f"Erro ao carregar domínios: {e}")
             messagebox.showerror("Erro", f"Erro ao carregar domínios: {e}")

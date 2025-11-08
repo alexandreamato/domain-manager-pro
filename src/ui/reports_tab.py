@@ -120,8 +120,8 @@ class ReportsTab:
             cms_total = sum(stats.get('cms_distribution', {}).values())
             self.stats_labels['with_cms'].config(text=str(cms_total))
 
-            # Para GA4, precisamos consultar diretamente
-            domains = self.db.get_all_domains()
+            # Para GA4, precisamos consultar diretamente (filtra ocultos)
+            domains = self.db.get_all_domains(include_hidden=False)
             with_ga4 = sum(1 for d in domains if d.get('ga4_code'))
             self.stats_labels['with_ga4'].config(text=str(with_ga4))
 

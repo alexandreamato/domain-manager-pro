@@ -385,11 +385,11 @@ class SEOTab:
         messagebox.showinfo("Detalhes do Domínio", details)
 
     def refresh_data(self):
-        """Atualiza dados da tabela"""
+        """Atualiza dados da tabela (filtra domínios ocultos)"""
         try:
-            domains = self.db.get_all_domains()
+            domains = self.db.get_all_domains(include_hidden=False)
             self.populate_table(domains)
-            messagebox.showinfo("Sucesso", f"Dados atualizados! {len(domains)} domínios carregados.")
+            messagebox.showinfo("Sucesso", f"Dados atualizados! {len(domains)} domínio(s) visível(is).")
         except Exception as e:
             logger.error(f"Erro ao atualizar dados: {e}")
             messagebox.showerror("Erro", f"Erro ao atualizar dados: {e}")

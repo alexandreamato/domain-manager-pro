@@ -51,6 +51,12 @@ class DatabaseManager:
                 google_indexed_pages INTEGER,
                 seo_score INTEGER,
                 estimated_domain_value INTEGER,
+                domain_authority INTEGER,
+                page_authority INTEGER,
+                global_rank INTEGER,
+                backlinks_count INTEGER,
+                domain_age_days INTEGER,
+                hosting_provider TEXT,
                 last_checked TIMESTAMP,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
@@ -81,6 +87,30 @@ class DatabaseManager:
             cursor.execute("ALTER TABLE domains ADD COLUMN estimated_domain_value INTEGER")
         except:
             pass
+        try:
+            cursor.execute("ALTER TABLE domains ADD COLUMN domain_authority INTEGER")
+        except:
+            pass
+        try:
+            cursor.execute("ALTER TABLE domains ADD COLUMN page_authority INTEGER")
+        except:
+            pass
+        try:
+            cursor.execute("ALTER TABLE domains ADD COLUMN global_rank INTEGER")
+        except:
+            pass
+        try:
+            cursor.execute("ALTER TABLE domains ADD COLUMN backlinks_count INTEGER")
+        except:
+            pass
+        try:
+            cursor.execute("ALTER TABLE domains ADD COLUMN domain_age_days INTEGER")
+        except:
+            pass
+        try:
+            cursor.execute("ALTER TABLE domains ADD COLUMN hosting_provider TEXT")
+        except:
+            pass
 
         # Tabela de configurações
         cursor.execute('''
@@ -102,6 +132,32 @@ class DatabaseManager:
                 checked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         ''')
+
+        # Tabela de histórico (para gráficos de evolução)
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS domain_history (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                domain TEXT NOT NULL,
+                status_code INTEGER,
+                ssl_expires_days INTEGER,
+                seo_score INTEGER,
+                google_indexed_pages INTEGER,
+                estimated_domain_value INTEGER,
+                domain_authority INTEGER,
+                page_authority INTEGER,
+                global_rank INTEGER,
+                backlinks_count INTEGER,
+                checked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (domain) REFERENCES domains(domain)
+            )
+        ''')
+
+        # Índice para buscas rápidas por domínio no histórico
+        try:
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_history_domain ON domain_history(domain)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_history_date ON domain_history(checked_at)')
+        except:
+            pass
 
         conn.commit()
         conn.close()
@@ -146,7 +202,13 @@ class DatabaseManager:
                 'estimated_annual_cost': None,
                 'google_indexed_pages': None,
                 'seo_score': None,
-                'estimated_domain_value': None
+                'estimated_domain_value': None,
+                'domain_authority': None,
+                'page_authority': None,
+                'global_rank': None,
+                'backlinks_count': None,
+                'domain_age_days': None,
+                'hosting_provider': None
             }
 
             # Mescla defaults com domain_data (domain_data sobrescreve defaults)
@@ -176,19 +238,29 @@ class DatabaseManager:
                     ssl_expires_days, dns_servers, whois_created, whois_expires,
                     is_spam, observations, raw_headers, raw_metadata, redirect_count,
                     discovered_subdomains, estimated_annual_cost, google_indexed_pages,
-                    seo_score, estimated_domain_value, last_checked
+                    seo_score, estimated_domain_value, domain_authority, page_authority,
+                    global_rank, backlinks_count, domain_age_days, hosting_provider,
+                    last_checked
                 ) VALUES (
                     :domain, :status_code, :server, :cloud_provider, :cms_detected,
                     :cms_version, :ga4_code, :fb_pixel, :ip_address, :registrar,
                     :ssl_expires_days, :dns_servers, :whois_created, :whois_expires,
                     :is_spam, :observations, :raw_headers, :raw_metadata, :redirect_count,
                     :discovered_subdomains, :estimated_annual_cost, :google_indexed_pages,
-                    :seo_score, :estimated_domain_value, :last_checked
+                    :seo_score, :estimated_domain_value, :domain_authority, :page_authority,
+                    :global_rank, :backlinks_count, :domain_age_days, :hosting_provider,
+                    :last_checked
                 )
             ''', data)
 
             conn.commit()
             logger.info(f"Domínio {data.get('domain')} salvo com sucesso")
+
+            # Salva snapshot histórico em thread separada para não bloquear
+            try:
+                self.save_history_snapshot(data)
+            except:
+                pass  # Não falha se histórico falhar
 
         except Exception as e:
             logger.error(f"Erro ao salvar domínio {domain_data.get('domain', '?')}: {e}")
@@ -277,6 +349,144 @@ class DatabaseManager:
         conn.close()
 
         logger.info(f"Domínio {domain} removido")
+
+    def save_history_snapshot(self, domain_data):
+        """
+        Salva um snapshot histórico do domínio
+
+        Args:
+            domain_data: Dicionário com informações do domínio
+        """
+        conn = self.get_connection()
+        cursor = conn.cursor()
+
+        try:
+            cursor.execute('''
+                INSERT INTO domain_history (
+                    domain, status_code, ssl_expires_days, seo_score,
+                    google_indexed_pages, estimated_domain_value,
+                    domain_authority, page_authority, global_rank,
+                    backlinks_count, checked_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (
+                domain_data.get('domain'),
+                domain_data.get('status_code'),
+                domain_data.get('ssl_expires_days'),
+                domain_data.get('seo_score'),
+                domain_data.get('google_indexed_pages'),
+                domain_data.get('estimated_domain_value'),
+                domain_data.get('domain_authority'),
+                domain_data.get('page_authority'),
+                domain_data.get('global_rank'),
+                domain_data.get('backlinks_count'),
+                datetime.now()
+            ))
+
+            conn.commit()
+            logger.debug(f"Snapshot histórico salvo para {domain_data.get('domain')}")
+
+        except Exception as e:
+            logger.error(f"Erro ao salvar histórico: {e}")
+            conn.rollback()
+        finally:
+            conn.close()
+
+    def get_domain_history(self, domain, days=30):
+        """
+        Recupera histórico de um domínio
+
+        Args:
+            domain: Nome do domínio
+            days: Últimos N dias
+
+        Returns:
+            Lista de snapshots históricos
+        """
+        conn = self.get_connection()
+        cursor = conn.cursor()
+
+        cursor.execute('''
+            SELECT *
+            FROM domain_history
+            WHERE domain = ?
+            AND checked_at >= datetime('now', '-' || ? || ' days')
+            ORDER BY checked_at ASC
+        ''', (domain, days))
+
+        rows = cursor.fetchall()
+        columns = [description[0] for description in cursor.description]
+        conn.close()
+
+        history = []
+        for row in rows:
+            history.append(dict(zip(columns, row)))
+
+        return history
+
+    def get_domains_with_issues(self):
+        """
+        Retorna domínios com problemas, ordenados por prioridade
+
+        Returns:
+            Lista de domínios com problemas
+        """
+        conn = self.get_connection()
+        cursor = conn.cursor()
+
+        # Busca domínios com problemas
+        cursor.execute('''
+            SELECT *,
+                CASE
+                    -- Prioridade 1: Erros críticos
+                    WHEN status_code >= 500 THEN 1
+                    WHEN ssl_expires_days IS NOT NULL AND ssl_expires_days <= 7 THEN 1
+                    WHEN is_spam = 1 THEN 1
+
+                    -- Prioridade 2: Erros médios
+                    WHEN status_code >= 400 THEN 2
+                    WHEN ssl_expires_days IS NOT NULL AND ssl_expires_days <= 30 THEN 2
+                    WHEN status_code IS NULL THEN 2
+
+                    -- Prioridade 3: Avisos
+                    WHEN ssl_expires_days IS NOT NULL AND ssl_expires_days <= 90 THEN 3
+                    WHEN redirect_count > 3 THEN 3
+                    WHEN seo_score IS NOT NULL AND seo_score < 50 THEN 3
+
+                    -- Sem problemas
+                    ELSE 999
+                END as priority
+            FROM domains
+            WHERE priority < 999
+            ORDER BY priority ASC, ssl_expires_days ASC, status_code DESC
+        ''')
+
+        rows = cursor.fetchall()
+        columns = [description[0] for description in cursor.description]
+        conn.close()
+
+        domains = []
+        for row in rows:
+            data = dict(zip(columns, row))
+
+            # Converter JSON
+            if data.get('dns_servers'):
+                try:
+                    data['dns_servers'] = json.loads(data['dns_servers'])
+                except:
+                    pass
+
+            # Identifica o problema
+            priority = data.get('priority', 999)
+            if priority == 1:
+                data['issue_type'] = 'CRÍTICO'
+            elif priority == 2:
+                data['issue_type'] = 'MÉDIO'
+            elif priority == 3:
+                data['issue_type'] = 'AVISO'
+
+            domains.append(data)
+
+        return domains
 
     def get_cache_age(self, domain):
         """Retorna há quantos dias um domínio foi verificado"""

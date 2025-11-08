@@ -18,20 +18,33 @@ logger = logging.getLogger(__name__)
 class DomainCollector:
     """Coleta informações completas de um domínio"""
 
-    def __init__(self, timeout=5, max_workers=10):
+    def __init__(self, timeout=5, max_workers=10, collect_web_seo=False):
         """
         Inicializa o coletor
 
         Args:
             timeout: Timeout para requisições HTTP em segundos
             max_workers: Número máximo de threads paralelas
+            collect_web_seo: Se True, coleta SEO da web (mais lento)
         """
         self.timeout = timeout
         self.max_workers = max_workers
+        self.collect_web_seo = collect_web_seo
         self.session = requests.Session()
         self.session.headers.update({
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
         })
+
+        # Inicializa web SEO collector se necessário
+        self.web_seo_collector = None
+        if self.collect_web_seo:
+            try:
+                from src.collectors.web_seo_collector import WebSEOCollector
+                self.web_seo_collector = WebSEOCollector(timeout=timeout * 2)
+                logger.info("Web SEO collector ativado")
+            except Exception as e:
+                logger.warning(f"Não foi possível ativar Web SEO collector: {e}")
+                self.collect_web_seo = False
 
     def normalize_domain(self, domain, keep_subdomain=True, keep_path=False):
         """
@@ -581,6 +594,30 @@ class DomainCollector:
             result['estimated_annual_cost'] = self._estimate_annual_cost(domain)
         except:
             result['estimated_annual_cost'] = None
+
+        # Web SEO (opcional, mais lento)
+        if self.collect_web_seo and self.web_seo_collector:
+            try:
+                logger.info(f"Coletando SEO da web para {domain}...")
+                web_seo = self.web_seo_collector.collect_all_web_seo(domain, result.get('ip_address'))
+
+                # Mescla resultados
+                if web_seo.get('moz_data'):
+                    result['domain_authority'] = web_seo['moz_data'].get('domain_authority')
+                    result['page_authority'] = web_seo['moz_data'].get('page_authority')
+
+                if web_seo.get('traffic_rank'):
+                    result['global_rank'] = web_seo['traffic_rank'].get('global_rank')
+
+                if web_seo.get('domain_age'):
+                    result['domain_age_days'] = web_seo['domain_age'].get('age_days')
+
+                result['backlinks_count'] = web_seo.get('backlinks_count')
+                result['hosting_provider'] = web_seo.get('hosting_provider')
+
+                logger.info(f"SEO da web coletado para {domain}")
+            except Exception as e:
+                logger.error(f"Erro ao coletar SEO da web de {domain}: {e}")
 
         logger.info(f"Informações de {domain} coletadas com sucesso")
 

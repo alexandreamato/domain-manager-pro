@@ -179,6 +179,46 @@ class DomainsTab:
         delete_btn = ttk.Button(buttons_frame, text="❌ Remover", command=self.delete_selected)
         delete_btn.pack(side=tk.LEFT)
 
+        # Frame de estatísticas (painel visual)
+        stats_frame = ttk.LabelFrame(self.frame, text="📊 Estatísticas", padding=10)
+        stats_frame.pack(fill=tk.X, padx=10, pady=(0, 10))
+
+        # Grid para estatísticas
+        stats_container = ttk.Frame(stats_frame)
+        stats_container.pack(fill=tk.X)
+
+        # Total de domínios
+        total_frame = tk.Frame(stats_container, bg='#e3f2fd', relief=tk.RAISED, bd=2)
+        total_frame.pack(side=tk.LEFT, padx=5, fill=tk.BOTH, expand=True)
+        tk.Label(total_frame, text="Total", bg='#e3f2fd', font=('Arial', 9, 'bold')).pack()
+        self.stats_total_label = tk.Label(total_frame, text="0", bg='#e3f2fd', font=('Arial', 16, 'bold'), fg='#1976d2')
+        self.stats_total_label.pack()
+        tk.Label(total_frame, text="domínios", bg='#e3f2fd', font=('Arial', 8)).pack()
+
+        # Domínios OK
+        ok_frame = tk.Frame(stats_container, bg='#e8f5e9', relief=tk.RAISED, bd=2)
+        ok_frame.pack(side=tk.LEFT, padx=5, fill=tk.BOTH, expand=True)
+        tk.Label(ok_frame, text="✓ OK (200)", bg='#e8f5e9', font=('Arial', 9, 'bold')).pack()
+        self.stats_ok_label = tk.Label(ok_frame, text="0", bg='#e8f5e9', font=('Arial', 16, 'bold'), fg='#2e7d32')
+        self.stats_ok_label.pack()
+        tk.Label(ok_frame, text="online", bg='#e8f5e9', font=('Arial', 8)).pack()
+
+        # Domínios com erro
+        error_frame = tk.Frame(stats_container, bg='#ffebee', relief=tk.RAISED, bd=2)
+        error_frame.pack(side=tk.LEFT, padx=5, fill=tk.BOTH, expand=True)
+        tk.Label(error_frame, text="✗ Erros (4xx/5xx)", bg='#ffebee', font=('Arial', 9, 'bold')).pack()
+        self.stats_error_label = tk.Label(error_frame, text="0", bg='#ffebee', font=('Arial', 16, 'bold'), fg='#c62828')
+        self.stats_error_label.pack()
+        tk.Label(error_frame, text="com problemas", bg='#ffebee', font=('Arial', 8)).pack()
+
+        # Redirects
+        redirect_frame = tk.Frame(stats_container, bg='#fff8e1', relief=tk.RAISED, bd=2)
+        redirect_frame.pack(side=tk.LEFT, padx=5, fill=tk.BOTH, expand=True)
+        tk.Label(redirect_frame, text="↻ Redirects", bg='#fff8e1', font=('Arial', 9, 'bold')).pack()
+        self.stats_redirect_label = tk.Label(redirect_frame, text="0", bg='#fff8e1', font=('Arial', 16, 'bold'), fg='#f57c00')
+        self.stats_redirect_label.pack()
+        tk.Label(redirect_frame, text="redirecionamentos", bg='#fff8e1', font=('Arial', 8)).pack()
+
         # Frame da tabela
         table_frame = ttk.Frame(self.frame)
         table_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=(0, 10))
@@ -526,6 +566,33 @@ class DomainsTab:
         for subdomain_data in sorted_orphans:
             self._insert_domain(subdomain_data, parent='')
 
+    def update_statistics(self, domains):
+        """
+        Atualiza painel de estatísticas
+
+        Args:
+            domains: Lista de domínios
+        """
+        total = len(domains)
+        ok_count = 0
+        error_count = 0
+        redirect_count = 0
+
+        for domain in domains:
+            status = domain.get('status_code')
+            if status == 200:
+                ok_count += 1
+            elif status and 300 <= status < 400:
+                redirect_count += 1
+            elif status and status >= 400:
+                error_count += 1
+
+        # Atualiza labels
+        self.stats_total_label.config(text=str(total))
+        self.stats_ok_label.config(text=str(ok_count))
+        self.stats_error_label.config(text=str(error_count))
+        self.stats_redirect_label.config(text=str(redirect_count))
+
     def populate_table(self, domains):
         """
         Popula a tabela com dados organizados hierarquicamente
@@ -561,6 +628,9 @@ class DomainsTab:
 
         # Pré-carrega favicons em background (não bloqueia UI)
         self.favicon_cache.prefetch_favicons(domains)
+
+        # Atualiza estatísticas
+        self.update_statistics(domains)
 
     def _insert_domain(self, domain, parent='', is_placeholder=False):
         """

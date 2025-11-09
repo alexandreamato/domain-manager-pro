@@ -239,6 +239,7 @@ class DomainsTab:
         self.tree.tag_configure('redirect', foreground='#ffc107')
         self.tree.tag_configure('error', foreground='#dc3545')
         self.tree.tag_configure('cms', foreground='#17a2b8')
+        self.tree.tag_configure('placeholder', foreground='#888888')  # Cinza para não analisados
 
         # Layout
         vsb.pack(side=tk.RIGHT, fill=tk.Y)
@@ -452,10 +453,38 @@ class DomainsTab:
             # Insere domínio raiz
             parent_id = self._insert_domain(root_data, parent='')
 
-            # Insere subdomínios abaixo
+            # Insere subdomínios analisados abaixo
             if root_name in subdomains:
                 for subdomain_data in sorted(subdomains[root_name], key=lambda x: x.get('domain', '')):
                     self._insert_domain(subdomain_data, parent=parent_id)
+
+            # Insere subdomínios descobertos (mas não analisados) abaixo
+            discovered_subs = root_data.get('discovered_subdomains', [])
+            if discovered_subs:
+                # Converte de JSON se necessário
+                if isinstance(discovered_subs, str):
+                    try:
+                        import json
+                        discovered_subs = json.loads(discovered_subs)
+                    except:
+                        discovered_subs = []
+
+                # Cria lista de subdomínios já analisados para evitar duplicatas
+                analyzed_subdomains = set()
+                if root_name in subdomains:
+                    analyzed_subdomains = set(s.get('domain') for s in subdomains[root_name])
+
+                # Insere subdomínios descobertos que ainda não foram analisados
+                for sub_name in sorted(discovered_subs):
+                    if sub_name not in analyzed_subdomains:
+                        # Cria entrada "placeholder" para subdomínio não analisado
+                        placeholder_data = {
+                            'domain': sub_name,
+                            'status_code': None,
+                            'cms_detected': '(não analisado)',
+                            'last_checked': None
+                        }
+                        self._insert_domain(placeholder_data, parent=parent_id, is_placeholder=True)
 
         # 3. Insere subdomínios órfãos (cujo domínio raiz não está na lista)
         for root_name in sorted(subdomains.keys()):
@@ -499,8 +528,15 @@ class DomainsTab:
         # Pré-carrega favicons em background (não bloqueia UI)
         self.favicon_cache.prefetch_favicons(domains)
 
-    def _insert_domain(self, domain, parent=''):
-        """Insere um domínio na tabela"""
+    def _insert_domain(self, domain, parent='', is_placeholder=False):
+        """
+        Insere um domínio na tabela
+
+        Args:
+            domain: Dados do domínio
+            parent: ID do item pai (para hierarquia)
+            is_placeholder: Se True, é um subdomínio descoberto mas não analisado
+        """
         # Formata dados
         status = domain.get('status_code', '-')
         cms = domain.get('cms_detected', '-') or '-'
@@ -526,7 +562,9 @@ class DomainsTab:
 
         # Define tag de cor
         tags = []
-        if status == 200:
+        if is_placeholder:
+            tags.append('placeholder')
+        elif status == 200:
             tags.append('ok')
         elif isinstance(status, int) and 300 <= status < 400:
             tags.append('redirect')
@@ -853,8 +891,119 @@ OBSERVAÇÕES: {domain_data.get('observations', '-')}
 
     def show_context_menu(self, event):
         """Mostra menu de contexto"""
-        # TODO: Implementar menu de contexto
-        pass
+        # Identifica item clicado
+        item = self.tree.identify_row(event.y)
+        if not item:
+            return
+
+        # Seleciona o item
+        self.tree.selection_set(item)
+
+        # Obtém dados do item
+        values = self.tree.item(item, 'values')
+        if not values:
+            return
+
+        domain_name = values[0]
+        cms = values[2]
+
+        # Cria menu
+        menu = tk.Menu(self.tree, tearoff=0)
+
+        # Verifica se é um placeholder (não analisado)
+        is_placeholder = cms == '(não analisado)'
+
+        if is_placeholder:
+            # Opções para subdomínios não analisados
+            menu.add_command(
+                label=f"🔍 Analisar '{domain_name}'",
+                command=lambda: self._analyze_single_domain(domain_name)
+            )
+            menu.add_separator()
+
+        # Opções comuns
+        menu.add_command(
+            label="👁️ Ver Detalhes",
+            command=lambda: self.show_details(event)
+        )
+
+        menu.add_separator()
+
+        menu.add_command(
+            label="🔄 Atualizar",
+            command=lambda: self._refresh_single_domain(domain_name)
+        )
+
+        menu.add_command(
+            label="🙈 Ocultar",
+            command=lambda: self._hide_single_domain(domain_name)
+        )
+
+        menu.add_command(
+            label="❌ Remover",
+            command=lambda: self._delete_single_domain(domain_name)
+        )
+
+        # Mostra menu
+        menu.post(event.x_root, event.y_root)
+
+    def _analyze_single_domain(self, domain):
+        """
+        Analisa um único domínio (útil para placeholders)
+
+        Args:
+            domain: Nome do domínio
+        """
+        if messagebox.askyesno("Confirmar", f"Analisar domínio '{domain}'?"):
+            # Adiciona ao campo de entrada
+            self.domains_text.delete('1.0', tk.END)
+            self.domains_text.insert('1.0', domain)
+
+            # Inicia análise
+            self.analyze_domains()
+
+    def _refresh_single_domain(self, domain):
+        """
+        Atualiza um único domínio
+
+        Args:
+            domain: Nome do domínio
+        """
+        self.domains_text.delete('1.0', tk.END)
+        self.domains_text.insert('1.0', domain)
+        self.analyze_domains()
+
+    def _hide_single_domain(self, domain):
+        """
+        Oculta um único domínio
+
+        Args:
+            domain: Nome do domínio
+        """
+        if messagebox.askyesno("Confirmar", f"Ocultar domínio '{domain}'?"):
+            try:
+                self.db.hide_domain(domain)
+                self.load_domains()
+                messagebox.showinfo("Sucesso", f"Domínio '{domain}' ocultado")
+            except Exception as e:
+                logger.error(f"Erro ao ocultar domínio: {e}")
+                messagebox.showerror("Erro", f"Erro ao ocultar domínio: {e}")
+
+    def _delete_single_domain(self, domain):
+        """
+        Remove um único domínio
+
+        Args:
+            domain: Nome do domínio
+        """
+        if messagebox.askyesno("ATENÇÃO", f"Remover permanentemente '{domain}'?\n\nEsta ação NÃO pode ser desfeita!"):
+            try:
+                self.db.delete_domain(domain)
+                self.load_domains()
+                messagebox.showinfo("Sucesso", f"Domínio '{domain}' removido")
+            except Exception as e:
+                logger.error(f"Erro ao remover domínio: {e}")
+                messagebox.showerror("Erro", f"Erro ao remover domínio: {e}")
 
     def show_issues_only(self):
         """Mostra apenas domínios com problemas, ordenados por prioridade"""

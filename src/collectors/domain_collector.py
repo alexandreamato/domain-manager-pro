@@ -741,56 +741,20 @@ class DomainCollector:
         """
         Descobre subdomínios via DNS
 
+        NOTA: Esta função está DESATIVADA por padrão pois pode descobrir
+        subdomínios que não pertencem ao usuário (especialmente com TLDs compostos).
+
         Args:
             domain: Domínio base
 
         Returns:
-            Lista de subdomínios encontrados
+            Lista vazia (função desativada)
         """
-        subdomains = []
-
-        # Remove subdomínio se tiver (para buscar no domínio raiz)
-        base_domain = domain
-        parts = domain.split('.')
-        if len(parts) > 2:
-            base_domain = '.'.join(parts[-2:])
-
-        # Lista de subdomínios comuns para testar
-        common_subdomains = [
-            'www', 'mail', 'ftp', 'localhost', 'webmail', 'smtp', 'pop', 'ns1', 'ns2',
-            'webdisk', 'ns', 'cpanel', 'whm', 'autodiscover', 'autoconfig', 'mobile',
-            'blog', 'shop', 'api', 'dev', 'staging', 'test', 'admin', 'portal',
-            'm', 'forum', 'cdn', 'static', 'img', 'images', 'ftp', 'sftp'
-        ]
-
-        for sub in common_subdomains:
-            full_domain = f"{sub}.{base_domain}"
-            try:
-                # Tenta resolver o DNS
-                socket.gethostbyname(full_domain)
-                subdomains.append(full_domain)
-                logger.info(f"Subdomínio encontrado: {full_domain}")
-            except:
-                pass
-
-        # Tenta buscar registros DNS comuns
-        try:
-            # MX records
-            mx_records = dns.resolver.resolve(base_domain, 'MX')
-            for mx in mx_records:
-                mx_domain = str(mx.exchange).rstrip('.')
-                if base_domain in mx_domain and mx_domain not in subdomains:
-                    subdomains.append(mx_domain)
-        except:
-            pass
-
-        try:
-            # TXT records (às vezes revelam subdomínios)
-            txt_records = dns.resolver.resolve(base_domain, 'TXT')
-        except:
-            pass
-
-        return list(set(subdomains))  # Remove duplicatas
+        # DESATIVADO: Esta função estava descobrindo subdomínios incorretos
+        # especialmente para TLDs compostos (.med.br, .com.br, etc)
+        # Exemplo: para "exemplo.med.br" estava tentando descobrir "www.med.br"
+        logger.debug(f"Descoberta automática de subdomínios desativada para {domain}")
+        return []
 
     def collect_all_info(self, domain):
         """

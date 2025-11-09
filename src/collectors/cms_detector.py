@@ -200,17 +200,33 @@ class CMSDetector:
 
                 return result
 
-            # Drupal
-            if 'Drupal' in html_content or '/sites/default/' in html_content:
+            # Drupal (detecção melhorada)
+            drupal_indicators = [
+                'Drupal' in html_content,
+                '/sites/default/' in html_content,
+                '/sites/all/' in html_content,
+                'drupal.js' in html_content.lower(),
+                '/core/misc/drupal' in html_content,
+                'data-drupal' in html_content.lower(),
+                'Drupal.settings' in html_content,
+                '/modules/system/' in html_content
+            ]
+
+            if any(drupal_indicators):
                 result['name'] = 'Drupal'
 
-                version_match = re.search(
+                # Tenta extrair versão de múltiplas fontes
+                version_patterns = [
                     r'<meta name="Generator" content="Drupal (\d+\.?\d*)',
-                    html_content,
-                    re.IGNORECASE
-                )
-                if version_match:
-                    result['version'] = version_match.group(1)
+                    r'Drupal (\d+\.\d+)',
+                    r'drupal[/-](\d+\.\d+)',
+                ]
+
+                for pattern in version_patterns:
+                    version_match = re.search(pattern, html_content, re.IGNORECASE)
+                    if version_match:
+                        result['version'] = version_match.group(1)
+                        break
 
                 return result
 
@@ -239,17 +255,38 @@ class CMSDetector:
                 result['name'] = 'PrestaShop'
                 return result
 
-            # MediaWiki / Wikimedia
-            if 'mediawiki' in html_content.lower() or 'wgVersion' in html_content:
-                result['name'] = 'MediaWiki'
-                # Verifica se é Wikimedia Foundation
-                if 'wikimedia' in html_content.lower() or 'wikipedia' in html_content.lower():
-                    result['name'] = 'Wikimedia (MediaWiki)'
-                return result
+            # MediaWiki / Wikimedia (detecção melhorada - ANTES de HTML estático)
+            mediawiki_indicators = [
+                'mediawiki' in html_content.lower(),
+                'wgVersion' in html_content,
+                'wgServer' in html_content,
+                'mw-head' in html_content,
+                'mw-page-base' in html_content,
+                'mw-content-text' in html_content,
+                '/wiki/' in html_content,
+                'wikibase' in html_content.lower(),
+                'wgArticleId' in html_content
+            ]
 
-            # Wikipedia/Wikimedia específico
-            if 'wikipedia' in html_content.lower() or 'wikimedia.org' in html_content.lower():
-                result['name'] = 'Wikimedia'
+            wikimedia_indicators = [
+                'wikimedia' in html_content.lower(),
+                'wikipedia' in html_content.lower(),
+                'wikimedia.org' in html_content.lower(),
+                'wikibooks' in html_content.lower(),
+                'wiktionary' in html_content.lower()
+            ]
+
+            if any(mediawiki_indicators) or any(wikimedia_indicators):
+                if any(wikimedia_indicators):
+                    result['name'] = 'Wikimedia'
+                else:
+                    result['name'] = 'MediaWiki'
+
+                # Tenta extrair versão
+                version_match = re.search(r'wgVersion["\s:]+["\'](\d+\.\d+)', html_content)
+                if version_match:
+                    result['version'] = version_match.group(1)
+
                 return result
 
             # Blogger

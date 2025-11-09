@@ -189,8 +189,8 @@ class DomainsTab:
 
         # Treeview
         columns = (
-            'domain', 'status', 'cms', 'version', 'ip', 'server',
-            'cloud', 'registrar', 'ssl', 'ga4', 'fb', 'checked'
+            'domain', 'status', 'cms', 'version', 'ip', 'country', 'city',
+            'server', 'cloud', 'registrar', 'ssl', 'ga4', 'fb', 'checked'
         )
 
         self.tree = ttk.Treeview(
@@ -212,6 +212,8 @@ class DomainsTab:
         self.tree.column('cms', width=100, anchor=tk.W)
         self.tree.column('version', width=80, anchor=tk.W)
         self.tree.column('ip', width=120, anchor=tk.W)
+        self.tree.column('country', width=80, anchor=tk.W)
+        self.tree.column('city', width=100, anchor=tk.W)
         self.tree.column('server', width=120, anchor=tk.W)
         self.tree.column('cloud', width=120, anchor=tk.W)
         self.tree.column('registrar', width=150, anchor=tk.W)
@@ -226,6 +228,8 @@ class DomainsTab:
         self.tree.heading('cms', text='CMS', command=lambda: self.sort_column('cms'))
         self.tree.heading('version', text='Versão', command=lambda: self.sort_column('version'))
         self.tree.heading('ip', text='IP', command=lambda: self.sort_column('ip'))
+        self.tree.heading('country', text='País', command=lambda: self.sort_column('country'))
+        self.tree.heading('city', text='Cidade', command=lambda: self.sort_column('city'))
         self.tree.heading('server', text='Servidor', command=lambda: self.sort_column('server'))
         self.tree.heading('cloud', text='Cloud', command=lambda: self.sort_column('cloud'))
         self.tree.heading('registrar', text='Registrar', command=lambda: self.sort_column('registrar'))
@@ -572,6 +576,8 @@ class DomainsTab:
         cms = domain.get('cms_detected', '-') or '-'
         version = domain.get('cms_version', '-') or '-'
         ip = domain.get('ip_address', '-') or '-'
+        country = domain.get('ip_country', '-') or '-'
+        city = domain.get('ip_city', '-') or '-'
         server = domain.get('server', '-') or '-'
         cloud = domain.get('cloud_provider', '-') or '-'
         registrar = domain.get('registrar', '-') or '-'
@@ -615,6 +621,8 @@ class DomainsTab:
                 cms,
                 version,
                 ip,
+                country,
+                city,
                 server,
                 cloud,
                 registrar,
@@ -688,6 +696,8 @@ class DomainsTab:
             'cms': 'cms_detected',
             'version': 'cms_version',
             'ip': 'ip_address',
+            'country': 'ip_country',
+            'city': 'ip_city',
             'server': 'server',
             'cloud': 'cloud_provider',
             'registrar': 'registrar',
@@ -704,6 +714,8 @@ class DomainsTab:
             'cms': 'CMS',
             'version': 'Versão',
             'ip': 'IP',
+            'country': 'País',
+            'city': 'Cidade',
             'server': 'Servidor',
             'cloud': 'Cloud',
             'registrar': 'Registrar',

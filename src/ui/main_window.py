@@ -78,15 +78,19 @@ class MainWindow:
         self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
 
     def apply_dark_theme(self):
-        """Aplica tema escuro na aplicação"""
+        """Aplica tema moderno e agradável na aplicação"""
         style = ttk.Style()
         style.theme_use('clam')
 
-        # Cores do tema escuro
-        bg_color = '#1a1a2e'
-        fg_color = '#eee'
-        select_bg = '#0f3460'
-        select_fg = '#ffffff'
+        # Cores do tema moderno (tons mais suaves e equilibrados)
+        bg_color = '#2b2b2b'           # Cinza escuro mais suave
+        bg_lighter = '#3c3c3c'         # Cinza um pouco mais claro
+        fg_color = '#e0e0e0'           # Texto cinza claro
+        accent_color = '#4a9eff'       # Azul vibrante mas não muito forte
+        select_bg = '#4a9eff'          # Azul para seleção
+        select_fg = '#ffffff'          # Texto branco quando selecionado
+        button_bg = '#4a9eff'          # Botões azuis
+        button_hover = '#3d8ce7'       # Hover um pouco mais escuro
 
         # Configurações gerais
         self.root.configure(bg=bg_color)
@@ -94,19 +98,38 @@ class MainWindow:
         # Estilos
         style.configure('TFrame', background=bg_color)
         style.configure('TLabel', background=bg_color, foreground=fg_color)
-        style.configure('TButton', background='#0f3460', foreground=fg_color, borderwidth=1)
-        style.map('TButton', background=[('active', '#16213e')])
+        style.configure('TLabelframe', background=bg_color, foreground=fg_color, borderwidth=1)
+        style.configure('TLabelframe.Label', background=bg_color, foreground=accent_color, font=('Arial', 10, 'bold'))
+
+        style.configure('TButton', background=button_bg, foreground='white', borderwidth=0, padding=6)
+        style.map('TButton', background=[('active', button_hover), ('pressed', '#2d7dd2')])
 
         style.configure('TNotebook', background=bg_color, borderwidth=0)
-        style.configure('TNotebook.Tab', background='#16213e', foreground=fg_color, padding=[20, 10])
-        style.map('TNotebook.Tab', background=[('selected', '#0f3460')], foreground=[('selected', '#ffffff')])
+        style.configure('TNotebook.Tab', background=bg_lighter, foreground=fg_color, padding=[20, 10])
+        style.map('TNotebook.Tab',
+                  background=[('selected', accent_color)],
+                  foreground=[('selected', '#ffffff')])
 
-        style.configure('Treeview', background='#16213e', foreground=fg_color, fieldbackground='#16213e', borderwidth=0)
-        style.configure('Treeview.Heading', background='#0f3460', foreground='white', borderwidth=1)
-        style.map('Treeview', background=[('selected', select_bg)], foreground=[('selected', select_fg)])
+        style.configure('Treeview',
+                       background='#353535',
+                       foreground=fg_color,
+                       fieldbackground='#353535',
+                       borderwidth=0,
+                       rowheight=25)
+        style.configure('Treeview.Heading',
+                       background=bg_lighter,
+                       foreground='white',
+                       borderwidth=1,
+                       relief='raised')
+        style.map('Treeview',
+                  background=[('selected', select_bg)],
+                  foreground=[('selected', select_fg)])
+        style.map('Treeview.Heading',
+                  background=[('active', accent_color)])
 
-        style.configure('TEntry', fieldbackground='#16213e', foreground=fg_color, borderwidth=1)
-        style.configure('TCombobox', fieldbackground='#16213e', foreground=fg_color, borderwidth=1)
+        style.configure('TEntry', fieldbackground='#353535', foreground=fg_color, borderwidth=1)
+        style.configure('TCombobox', fieldbackground='#353535', foreground=fg_color, borderwidth=1, arrowcolor=fg_color)
+        style.configure('TScrollbar', background=bg_lighter, troughcolor=bg_color, borderwidth=0, arrowcolor=fg_color)
 
     def create_widgets(self):
         """Cria os widgets da interface"""

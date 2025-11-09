@@ -290,8 +290,9 @@ class DomainsTab:
         hsb.pack(side=tk.BOTTOM, fill=tk.X)
         self.tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
-        # Bind duplo clique para ver detalhes
-        self.tree.bind('<Double-Button-1>', self.show_details)
+        # Duplo clique desabilitado para não interferir com expansão de subdomínios
+        # Para ver detalhes, use clique direito → "Ver Detalhes"
+        # self.tree.bind('<Double-Button-1>', self.show_details)
 
         # Bind botão direito para menu de contexto
         self.tree.bind('<Button-3>', self.show_context_menu)

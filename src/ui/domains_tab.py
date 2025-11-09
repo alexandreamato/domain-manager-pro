@@ -334,6 +334,8 @@ class DomainsTab:
     def _analyze_thread(self, domains):
         """Thread de análise de domínios"""
         try:
+            logger.info(f"Iniciando análise de {len(domains)} domínio(s): {', '.join(domains)}")
+
             def progress_callback(current, total, domain):
                 """Callback de progresso"""
                 percentage = (current / total) * 100
@@ -343,11 +345,13 @@ class DomainsTab:
             # Coleta informações
             results = self.collector.collect_multiple(domains, progress_callback)
 
+            logger.info(f"Análise concluída. {len(results)} resultado(s) obtido(s)")
+
             # Callback no thread principal
             self.frame.after(0, lambda: self._analysis_complete(results))
 
         except Exception as e:
-            logger.error(f"Erro na análise: {e}")
+            logger.error(f"Erro na análise: {e}", exc_info=True)
             self.frame.after(0, lambda: messagebox.showerror("Erro", f"Erro na análise: {e}"))
             self.frame.after(0, self._reset_analysis)
 
@@ -387,7 +391,15 @@ class DomainsTab:
             return domain
 
         # Casos especiais de TLDs com duas partes (co.uk, com.br, etc)
-        two_part_tlds = ['co.uk', 'com.br', 'com.au', 'co.nz', 'co.za', 'gov.br', 'org.br']
+        two_part_tlds = [
+            'co.uk', 'com.br', 'com.au', 'co.nz', 'co.za',
+            'gov.br', 'org.br', 'net.br', 'edu.br', 'mil.br',
+            'med.br', 'jus.br', 'leg.br', 'mus.br', 'art.br',
+            'eco.br', 'esp.br', 'ind.br', 'tmp.br', 'tur.br',
+            'ac.uk', 'gov.uk', 'org.uk', 'me.uk', 'net.uk',
+            'co.jp', 'or.jp', 'ne.jp', 'ac.jp', 'go.jp',
+            'com.mx', 'gob.mx', 'org.mx', 'edu.mx', 'net.mx'
+        ]
 
         # Verifica se termina com TLD de duas partes
         if len(parts) >= 3:

@@ -181,12 +181,20 @@ class MainWindow:
         Args:
             results: Lista de resultados da análise
         """
+        logger.info(f"Salvando {len(results)} resultado(s) no banco de dados")
+
         # Salva no banco de dados
+        saved_count = 0
         for result in results:
             try:
+                domain_name = result.get('domain', 'desconhecido')
+                logger.debug(f"Salvando domínio: {domain_name}")
                 self.db.save_domain(result)
+                saved_count += 1
             except Exception as e:
-                logger.error(f"Erro ao salvar domínio {result.get('domain')}: {e}")
+                logger.error(f"Erro ao salvar domínio {result.get('domain')}: {e}", exc_info=True)
+
+        logger.info(f"{saved_count}/{len(results)} domínio(s) salvo(s) com sucesso")
 
         # Coleta subdomínios descobertos para análise automática
         discovered_subdomains = []

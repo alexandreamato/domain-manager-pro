@@ -421,12 +421,14 @@ class DomainsTab:
         # Verifica se termina com .parent
         return subdomain.endswith('.' + parent)
 
-    def _insert_domains_hierarchically(self, domains):
+    def _insert_domains_hierarchically(self, domains, sort_key=None, sort_reverse=False):
         """
         Insere domínios organizados hierarquicamente
 
         Args:
             domains: Lista de domínios para inserir
+            sort_key: Função de ordenação (opcional)
+            sort_reverse: Se True, ordena em ordem reversa
         """
         # Organiza domínios em hierarquia
         # 1. Separa domínios principais e subdomínios
@@ -446,16 +448,27 @@ class DomainsTab:
                     subdomains[root] = []
                 subdomains[root].append(domain_data)
 
-        # 2. Insere domínios raiz primeiro, depois seus subdomínios
-        for root_name in sorted(root_domains.keys()):
-            root_data = root_domains[root_name]
+        # 2. Define função de ordenação
+        if sort_key is None:
+            # Ordenação padrão: alfabética por nome do domínio
+            sort_function = lambda items: sorted(items, key=lambda x: x.get('domain', '').lower())
+        else:
+            # Usa função de ordenação customizada
+            sort_function = lambda items: sorted(items, key=sort_key, reverse=sort_reverse)
+
+        # 3. Ordena e insere domínios raiz
+        sorted_roots = sort_function(list(root_domains.values()))
+
+        for root_data in sorted_roots:
+            root_name = root_data.get('domain', '')
 
             # Insere domínio raiz
             parent_id = self._insert_domain(root_data, parent='')
 
-            # Insere subdomínios analisados abaixo
+            # Insere subdomínios analisados abaixo (também ordenados)
             if root_name in subdomains:
-                for subdomain_data in sorted(subdomains[root_name], key=lambda x: x.get('domain', '')):
+                sorted_subs = sort_function(subdomains[root_name])
+                for subdomain_data in sorted_subs:
                     self._insert_domain(subdomain_data, parent=parent_id)
 
             # Insere subdomínios descobertos (mas não analisados) abaixo
@@ -486,11 +499,16 @@ class DomainsTab:
                         }
                         self._insert_domain(placeholder_data, parent=parent_id, is_placeholder=True)
 
-        # 3. Insere subdomínios órfãos (cujo domínio raiz não está na lista)
-        for root_name in sorted(subdomains.keys()):
+        # 4. Insere subdomínios órfãos (cujo domínio raiz não está na lista)
+        orphan_subdomains = []
+        for root_name in subdomains.keys():
             if root_name not in root_domains:
-                for subdomain_data in sorted(subdomains[root_name], key=lambda x: x.get('domain', '')):
-                    self._insert_domain(subdomain_data, parent='')
+                orphan_subdomains.extend(subdomains[root_name])
+
+        # Ordena e insere órfãos
+        sorted_orphans = sort_function(orphan_subdomains)
+        for subdomain_data in sorted_orphans:
+            self._insert_domain(subdomain_data, parent='')
 
     def populate_table(self, domains):
         """
@@ -707,8 +725,6 @@ class DomainsTab:
                 # Para strings, normaliza
                 return (0, str(value).lower())
 
-            self.current_data.sort(key=sort_key, reverse=reverse)
-
             # Atualiza indicadores visuais nos headers
             for col in column_map.keys():
                 header_text = header_names.get(col, col)
@@ -727,8 +743,8 @@ class DomainsTab:
             for item in self.tree.get_children():
                 self.tree.delete(item)
 
-            # Insere hierarquicamente
-            self._insert_domains_hierarchically(self.current_data)
+            # Insere hierarquicamente com ordenação
+            self._insert_domains_hierarchically(self.current_data, sort_key=sort_key, sort_reverse=reverse)
 
         except Exception as e:
             logger.error(f"Erro ao ordenar por {column}: {e}")

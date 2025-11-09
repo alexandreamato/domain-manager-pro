@@ -323,12 +323,10 @@ class MonitoringTab:
     def refresh_domain_list(self):
         """Atualiza lista de domínios"""
         try:
-            domains = self.db.get_all_domains()
+            # Busca apenas domínios visíveis
+            domains = self.db.get_all_domains(include_hidden=False)
 
-            # Filtra domínios ocultos
-            visible_domains = [d for d in domains if not d.get('is_hidden')]
-
-            domain_names = sorted([d['domain'] for d in visible_domains])
+            domain_names = sorted([d['domain'] for d in domains])
 
             self.domain_combo['values'] = domain_names
 
@@ -347,9 +345,8 @@ class MonitoringTab:
             return
 
         try:
-            # Busca dados do domínio
-            domains = self.db.get_all_domains()
-            domain_data = next((d for d in domains if d['domain'] == domain_name), None)
+            # Busca dados do domínio diretamente (mais eficiente)
+            domain_data = self.db.get_domain(domain_name)
 
             if not domain_data:
                 return

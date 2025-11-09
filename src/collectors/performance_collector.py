@@ -140,9 +140,11 @@ class PerformanceCollector:
                 logger.info(f"PageSpeed Score para {domain_clean}: {result['performance_score']}")
 
             elif response.status_code == 429:
-                logger.warning(f"Rate limit atingido no PageSpeed Insights")
+                logger.info(f"PageSpeed API: Rate limit atingido (máx 25 requests/dia sem API key). Configure uma API key nas configurações para aumentar o limite.")
+            elif response.status_code == 400:
+                logger.debug(f"PageSpeed API: Requisição inválida para {domain_clean}")
             else:
-                logger.warning(f"PageSpeed API retornou status {response.status_code}")
+                logger.debug(f"PageSpeed API retornou status {response.status_code} para {domain_clean}")
 
         except requests.exceptions.Timeout:
             logger.warning(f"Timeout ao consultar PageSpeed para {domain}")

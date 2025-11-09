@@ -239,9 +239,17 @@ class CMSDetector:
                 result['name'] = 'PrestaShop'
                 return result
 
-            # MediaWiki
+            # MediaWiki / Wikimedia
             if 'mediawiki' in html_content.lower() or 'wgVersion' in html_content:
                 result['name'] = 'MediaWiki'
+                # Verifica se é Wikimedia Foundation
+                if 'wikimedia' in html_content.lower() or 'wikipedia' in html_content.lower():
+                    result['name'] = 'Wikimedia (MediaWiki)'
+                return result
+
+            # Wikipedia/Wikimedia específico
+            if 'wikipedia' in html_content.lower() or 'wikimedia.org' in html_content.lower():
+                result['name'] = 'Wikimedia'
                 return result
 
             # Blogger
@@ -254,7 +262,85 @@ class CMSDetector:
                 result['name'] = 'Ghost'
                 return result
 
+            # Webflow
+            if 'webflow' in html_content.lower() or 'wf-page' in html_content:
+                result['name'] = 'Webflow'
+                return result
+
+            # Hugo
+            if 'hugo' in html_content.lower() or 'generator.*hugo' in html_content.lower():
+                result['name'] = 'Hugo (Static)'
+                return result
+
+            # Jekyll
+            if 'jekyll' in html_content.lower() or 'generator.*jekyll' in html_content.lower():
+                result['name'] = 'Jekyll (Static)'
+                return result
+
+            # Next.js
+            if '__next' in html_content or '_next/static' in html_content:
+                result['name'] = 'Next.js'
+                return result
+
+            # Gatsby
+            if 'gatsby' in html_content.lower() or 'gatsby-image' in html_content:
+                result['name'] = 'Gatsby'
+                return result
+
+            # Detecção de HTML estático (sem CMS)
+            # Verifica se NÃO tem sinais de frameworks dinâmicos
+            is_static = self._is_static_html(html_content)
+            if is_static:
+                result['name'] = 'HTML Estático'
+                return result
+
         except Exception as e:
             logger.debug(f"Erro ao analisar HTML para CMS: {e}")
 
         return result
+
+    def _is_static_html(self, html_content):
+        """
+        Verifica se é um site HTML estático (sem CMS)
+
+        Args:
+            html_content: Conteúdo HTML
+
+        Returns:
+            True se aparenta ser HTML estático
+        """
+        if not html_content:
+            return False
+
+        html_lower = html_content.lower()
+
+        # Sinais de que é estático
+        static_indicators = 0
+
+        # Não tem meta generator
+        if '<meta name="generator"' not in html_lower:
+            static_indicators += 1
+
+        # Não tem sinais de frameworks comuns
+        framework_signs = [
+            'wp-content', 'wordpress', 'joomla', 'drupal',
+            'cdn.shopify', 'wix.com', 'squarespace',
+            '__next', 'gatsby', 'nuxt', 'vue', 'react',
+            'angular', 'ember', 'backbone'
+        ]
+
+        has_framework = any(sign in html_lower for sign in framework_signs)
+        if not has_framework:
+            static_indicators += 1
+
+        # Tem estrutura HTML básica simples
+        if '<html' in html_lower and '</html>' in html_lower:
+            static_indicators += 1
+
+        # Não tem muitos scripts complexos
+        script_count = html_lower.count('<script')
+        if script_count < 5:  # Sites dinâmicos geralmente têm muitos scripts
+            static_indicators += 1
+
+        # Considera estático se tiver pelo menos 3 indicadores
+        return static_indicators >= 3

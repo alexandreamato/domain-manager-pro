@@ -112,7 +112,8 @@ class WebSEOCollector:
             'backlinks': None
         }
 
-        if not self.moz_api_key:
+        # Verifica se API key está configurada e não está vazia
+        if not self.moz_api_key or not self.moz_api_key.strip():
             logger.debug(f"MOZ API key não configurada, pulando para {domain}")
             return result
 
@@ -124,7 +125,8 @@ class WebSEOCollector:
             if ':' in self.moz_api_key:
                 access_id, secret_key = self.moz_api_key.split(':', 1)
             else:
-                logger.warning("MOZ API key deve estar no formato 'access_id:secret_key'")
+                # Só avisa se estiver configurada mas no formato errado
+                logger.error("MOZ API key configurada mas em formato inválido. Use 'access_id:secret_key'")
                 return result
 
             import hmac

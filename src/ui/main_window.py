@@ -25,8 +25,19 @@ class MainWindow:
     def __init__(self):
         """Inicializa a janela principal"""
         self.root = tk.Tk()
-        self.root.title("Domain Manager Pro")
+        self.root.title("🌐 Domain Manager Pro")
         self.root.geometry("1400x900")
+
+        # Tenta configurar ícone se disponível
+        try:
+            # Tenta carregar ícone PNG se existir
+            icon_path = "assets/icon.png"
+            import os
+            if os.path.exists(icon_path):
+                icon = tk.PhotoImage(file=icon_path)
+                self.root.iconphoto(True, icon)
+        except Exception as e:
+            logger.debug(f"Não foi possível carregar ícone: {e}")
 
         # Managers
         self.db = DatabaseManager()

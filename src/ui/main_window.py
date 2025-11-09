@@ -47,6 +47,10 @@ class MainWindow:
         # Dados
         self.domains_data = []
 
+        # Auto-refresh
+        self.auto_refresh_timer = None
+        self.last_auto_refresh = None
+
         # Aplicar tema escuro
         self.apply_dark_theme()
 
@@ -55,6 +59,9 @@ class MainWindow:
 
         # Carregar dados salvos
         self.load_saved_domains()
+
+        # Iniciar auto-refresh se configurado
+        self.start_auto_refresh()
 
         # Configurar fechamento
         self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
@@ -287,6 +294,10 @@ class MainWindow:
         # Atualiza no domains_tab
         self.domains_tab.collector = self.collector
 
+        # Reinicia auto-refresh com novas configurações
+        self.stop_auto_refresh()
+        self.start_auto_refresh()
+
         self.update_status("Configurações atualizadas")
         logger.info("Configurações atualizadas")
 
@@ -300,8 +311,157 @@ class MainWindow:
         timestamp = datetime.now().strftime('%H:%M:%S')
         self.status_var.set(f"{timestamp} - {message}")
 
+    def start_auto_refresh(self):
+        """Inicia o timer de auto-refresh diário"""
+        # Verifica se está habilitado
+        auto_refresh_enabled = self.config.get('auto_refresh_enabled', True)
+        if not auto_refresh_enabled:
+            logger.info("Auto-refresh desabilitado")
+            return
+
+        # Intervalo em horas (padrão: 24h = 1 dia)
+        refresh_interval_hours = self.config.get('auto_refresh_interval', 24)
+
+        # Carrega última atualização do DB
+        last_refresh_str = self.db.get_setting('last_auto_refresh')
+
+        if last_refresh_str:
+            try:
+                from datetime import datetime, timedelta
+                self.last_auto_refresh = datetime.fromisoformat(last_refresh_str)
+
+                # Calcula tempo desde última atualização
+                time_since_refresh = datetime.now() - self.last_auto_refresh
+                hours_since_refresh = time_since_refresh.total_seconds() / 3600
+
+                logger.info(f"Última auto-atualização: {hours_since_refresh:.1f}h atrás")
+
+                # Se já passou o intervalo, atualiza agora
+                if hours_since_refresh >= refresh_interval_hours:
+                    logger.info("Intervalo de atualização atingido, executando agora...")
+                    self.root.after(5000, self.execute_auto_refresh)  # 5s após iniciar
+                    return
+            except Exception as e:
+                logger.error(f"Erro ao processar última atualização: {e}")
+
+        # Agenda próxima verificação (verifica a cada hora)
+        check_interval_ms = 3600000  # 1 hora em milissegundos
+        self.auto_refresh_timer = self.root.after(check_interval_ms, self.check_auto_refresh)
+
+        logger.info(f"Auto-refresh agendado (intervalo: {refresh_interval_hours}h)")
+
+    def check_auto_refresh(self):
+        """Verifica se é hora de executar auto-refresh"""
+        from datetime import datetime, timedelta
+
+        refresh_interval_hours = self.config.get('auto_refresh_interval', 24)
+
+        # Se nunca atualizou, atualiza agora
+        if not self.last_auto_refresh:
+            logger.info("Primeira auto-atualização")
+            self.execute_auto_refresh()
+            return
+
+        # Calcula tempo desde última atualização
+        time_since_refresh = datetime.now() - self.last_auto_refresh
+        hours_since_refresh = time_since_refresh.total_seconds() / 3600
+
+        # Se passou o intervalo, atualiza
+        if hours_since_refresh >= refresh_interval_hours:
+            logger.info(f"Auto-refresh executado ({hours_since_refresh:.1f}h desde última atualização)")
+            self.execute_auto_refresh()
+        else:
+            # Agenda próxima verificação (1 hora)
+            check_interval_ms = 3600000
+            self.auto_refresh_timer = self.root.after(check_interval_ms, self.check_auto_refresh)
+
+            hours_remaining = refresh_interval_hours - hours_since_refresh
+            logger.debug(f"Próxima auto-atualização em ~{hours_remaining:.1f}h")
+
+    def execute_auto_refresh(self):
+        """Executa a atualização automática de todos os domínios"""
+        from datetime import datetime
+
+        try:
+            logger.info("═══ INICIANDO AUTO-ATUALIZAÇÃO AUTOMÁTICA ═══")
+
+            # Atualiza status
+            self.update_status("🔄 Auto-atualização iniciada...")
+
+            # Pega todos os domínios não ocultos
+            domains = self.db.get_all_domains(include_hidden=False)
+
+            if not domains:
+                logger.info("Nenhum domínio para atualizar")
+                self.update_status("Nenhum domínio para atualizar")
+                return
+
+            logger.info(f"Auto-atualizando {len(domains)} domínio(s)...")
+
+            # Extrai apenas os nomes dos domínios
+            domain_names = [d['domain'] for d in domains]
+
+            # Executa análise em thread separada
+            def analyze_thread():
+                try:
+                    # Análise com callback de progresso
+                    def progress_callback(current, total, domain):
+                        percent = int((current / total) * 100)
+                        self.root.after(0, lambda: self.update_status(
+                            f"🔄 Auto-atualização: {current}/{total} ({percent}%) - {domain}"
+                        ))
+
+                    # Coleta informações
+                    results = self.collector.collect_multiple(domain_names, progress_callback)
+
+                    # Salva no banco
+                    for result in results:
+                        self.db.save_domain(result)
+
+                    # Atualiza timestamp da última atualização
+                    from datetime import datetime
+                    now = datetime.now()
+                    self.last_auto_refresh = now
+                    self.db.save_setting('last_auto_refresh', now.isoformat())
+
+                    # Recarrega dados na UI
+                    self.root.after(0, self.load_saved_domains)
+
+                    # Atualiza status
+                    self.root.after(0, lambda: self.update_status(
+                        f"✅ Auto-atualização concluída: {len(results)} domínio(s)"
+                    ))
+
+                    logger.info(f"═══ AUTO-ATUALIZAÇÃO CONCLUÍDA: {len(results)} domínio(s) ═══")
+
+                    # Agenda próxima verificação
+                    check_interval_ms = 3600000  # 1 hora
+                    self.auto_refresh_timer = self.root.after(check_interval_ms, self.check_auto_refresh)
+
+                except Exception as e:
+                    logger.error(f"Erro na auto-atualização: {e}")
+                    self.root.after(0, lambda: self.update_status(f"❌ Erro na auto-atualização: {e}"))
+
+            # Inicia thread
+            thread = threading.Thread(target=analyze_thread, daemon=True)
+            thread.start()
+
+        except Exception as e:
+            logger.error(f"Erro ao iniciar auto-atualização: {e}")
+            self.update_status(f"❌ Erro ao iniciar auto-atualização")
+
+    def stop_auto_refresh(self):
+        """Para o timer de auto-refresh"""
+        if self.auto_refresh_timer:
+            self.root.after_cancel(self.auto_refresh_timer)
+            self.auto_refresh_timer = None
+            logger.info("Auto-refresh interrompido")
+
     def on_closing(self):
         """Callback para fechamento da janela"""
+        # Para auto-refresh antes de fechar
+        self.stop_auto_refresh()
+
         if messagebox.askokcancel("Sair", "Deseja realmente sair do Domain Manager Pro?"):
             logger.info("Aplicação fechada pelo usuário")
             self.root.destroy()

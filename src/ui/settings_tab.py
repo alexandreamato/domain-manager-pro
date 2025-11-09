@@ -92,22 +92,45 @@ class SettingsTab:
         )
         workers_spin.pack(side=tk.LEFT, padx=(10, 0))
 
-        # Auto refresh
-        refresh_frame = ttk.Frame(general_frame)
-        refresh_frame.pack(fill=tk.X, pady=5)
+        # Auto-refresh automático
+        auto_refresh_frame = ttk.Frame(general_frame)
+        auto_refresh_frame.pack(fill=tk.X, pady=5)
 
-        ttk.Label(refresh_frame, text="Intervalo de atualização (seg):", width=30).pack(side=tk.LEFT)
+        self.auto_refresh_enabled_var = tk.BooleanVar(value=self.config.get('auto_refresh_enabled', True))
 
-        self.refresh_var = tk.IntVar(value=self.config.get('auto_refresh_interval', 300))
-        refresh_spin = ttk.Spinbox(
-            refresh_frame,
-            from_=60,
-            to=3600,
-            increment=60,
-            textvariable=self.refresh_var,
-            width=10
+        auto_refresh_check = ttk.Checkbutton(
+            auto_refresh_frame,
+            text="🔄 Atualizar automaticamente todos os domínios",
+            variable=self.auto_refresh_enabled_var
         )
-        refresh_spin.pack(side=tk.LEFT, padx=(10, 0))
+        auto_refresh_check.pack(anchor=tk.W, pady=5)
+
+        # Intervalo de auto-refresh
+        interval_frame = ttk.Frame(auto_refresh_frame)
+        interval_frame.pack(fill=tk.X, pady=5, padx=(20, 0))
+
+        ttk.Label(interval_frame, text="A cada:", width=12).pack(side=tk.LEFT)
+
+        self.refresh_var = tk.IntVar(value=self.config.get('auto_refresh_interval', 24))
+        refresh_spin = ttk.Spinbox(
+            interval_frame,
+            from_=1,
+            to=168,  # Máximo 1 semana
+            textvariable=self.refresh_var,
+            width=8
+        )
+        refresh_spin.pack(side=tk.LEFT, padx=(5, 5))
+
+        ttk.Label(interval_frame, text="hora(s)").pack(side=tk.LEFT)
+
+        # Ajuda sobre auto-refresh
+        auto_refresh_help = ttk.Label(
+            auto_refresh_frame,
+            text="ℹ️ Enquanto o app estiver aberto, atualizará todos os domínios automaticamente no intervalo configurado",
+            font=('Arial', 8),
+            foreground='#888'
+        )
+        auto_refresh_help.pack(anchor=tk.W, padx=(20, 0), pady=(0, 5))
 
         # Seção de SEO
         seo_frame = ttk.LabelFrame(settings_container, text="Configurações de SEO", padding=20)
@@ -312,6 +335,7 @@ Recursos:
             # Salva configurações gerais
             self.config.set('timeout', self.timeout_var.get())
             self.config.set('max_workers', self.workers_var.get())
+            self.config.set('auto_refresh_enabled', self.auto_refresh_enabled_var.get())
             self.config.set('auto_refresh_interval', self.refresh_var.get())
 
             # Salva configurações de SEO

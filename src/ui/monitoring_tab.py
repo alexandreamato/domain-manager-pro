@@ -301,24 +301,66 @@ class MonitoringTab:
         self.technical_text.pack(fill=tk.BOTH, expand=True)
 
     def create_card(self, parent, title, row, col):
-        """Cria um card de métrica"""
-        card = ttk.LabelFrame(parent, text=title, padding=15)
-        card.grid(row=row, column=col, padx=10, pady=10, sticky=(tk.W, tk.E, tk.N, tk.S))
+        """Cria um card de métrica visual aprimorado"""
+        # Frame externo com cor de fundo
+        outer_frame = tk.Frame(parent, relief=tk.RAISED, borderwidth=2)
+        outer_frame.grid(row=row, column=col, padx=10, pady=10, sticky=(tk.W, tk.E, tk.N, tk.S))
 
         # Configurar grid
         parent.grid_columnconfigure(col, weight=1)
 
-        # Label para o conteúdo
-        content_label = ttk.Label(
-            card,
-            text="Selecione um domínio",
-            font=('Arial', 11),
-            justify=tk.LEFT,
-            wraplength=300
+        # Título do card
+        title_label = tk.Label(
+            outer_frame,
+            text=title,
+            font=('Arial', 10, 'bold'),
+            bg='#2c3e50',
+            fg='white',
+            pady=5
         )
-        content_label.pack(anchor=tk.W)
+        title_label.pack(fill=tk.X)
 
-        return content_label
+        # Container de conteúdo com background
+        content_frame = tk.Frame(outer_frame, bg='white', padx=15, pady=15)
+        content_frame.pack(fill=tk.BOTH, expand=True)
+
+        # Ícone/Badge grande no topo
+        icon_label = tk.Label(
+            content_frame,
+            text="",
+            font=('Arial', 36),
+            bg='white'
+        )
+        icon_label.pack()
+
+        # Valor principal (número grande)
+        value_label = tk.Label(
+            content_frame,
+            text="",
+            font=('Arial', 24, 'bold'),
+            bg='white'
+        )
+        value_label.pack()
+
+        # Descrição/detalhes (texto menor)
+        detail_label = tk.Label(
+            content_frame,
+            text="Selecione um domínio",
+            font=('Arial', 10),
+            bg='white',
+            fg='#555',
+            justify=tk.CENTER
+        )
+        detail_label.pack()
+
+        # Retorna um dicionário com referências
+        return {
+            'frame': outer_frame,
+            'content_frame': content_frame,
+            'icon': icon_label,
+            'value': value_label,
+            'detail': detail_label
+        }
 
     def refresh_domain_list(self):
         """Atualiza lista de domínios"""
@@ -368,96 +410,191 @@ class MonitoringTab:
             logger.error(f"Erro ao carregar dados do domínio: {e}")
 
     def update_overview(self, data):
-        """Atualiza cards da visão geral"""
-        # Status do domínio
+        """Atualiza cards da visão geral com visual aprimorado"""
+
+        # === 1. STATUS DO DOMÍNIO ===
         status = data.get('status_code')
-        status_text = f"HTTP {status}" if status else "Desconhecido"
-        status_color = "green" if status == 200 else "orange" if status and 300 <= status < 400 else "red"
+        if status == 200:
+            self.status_card['content_frame'].config(bg='#d4edda')  # Verde claro
+            self.status_card['icon'].config(text='✓', fg='#28a745', bg='#d4edda')
+            self.status_card['value'].config(text=f'{status}', fg='#28a745', bg='#d4edda')
+            self.status_card['detail'].config(text='Online', fg='#155724', bg='#d4edda')
+        elif status and 300 <= status < 400:
+            self.status_card['content_frame'].config(bg='#fff3cd')  # Amarelo claro
+            self.status_card['icon'].config(text='↻', fg='#ffc107', bg='#fff3cd')
+            self.status_card['value'].config(text=f'{status}', fg='#ffc107', bg='#fff3cd')
+            self.status_card['detail'].config(text='Redirect', fg='#856404', bg='#fff3cd')
+        elif status and status >= 400:
+            self.status_card['content_frame'].config(bg='#f8d7da')  # Vermelho claro
+            self.status_card['icon'].config(text='✗', fg='#dc3545', bg='#f8d7da')
+            self.status_card['value'].config(text=f'{status}', fg='#dc3545', bg='#f8d7da')
+            self.status_card['detail'].config(text='Erro', fg='#721c24', bg='#f8d7da')
+        else:
+            self.status_card['content_frame'].config(bg='#e2e3e5')  # Cinza claro
+            self.status_card['icon'].config(text='?', fg='#6c757d', bg='#e2e3e5')
+            self.status_card['value'].config(text='N/A', fg='#6c757d', bg='#e2e3e5')
+            self.status_card['detail'].config(text='Desconhecido', fg='#383d41', bg='#e2e3e5')
 
-        self.status_card.config(
-            text=f"{status_text}\nIP: {data.get('ip_address') or 'N/A'}",
-            foreground=status_color
-        )
+        # IP adicional
+        ip = data.get('ip_address', '-')
+        current_detail = self.status_card['detail'].cget('text')
+        self.status_card['detail'].config(text=f'{current_detail}\n{ip}')
 
-        # Validade
+        # === 2. VALIDADE (menor das duas) ===
         days_until_exp = data.get('days_until_expiration')
         ssl_days = data.get('ssl_expires_days')
 
-        if days_until_exp is not None:
-            exp_text = f"Domínio: {days_until_exp} dias"
-            exp_color = "green" if days_until_exp > 30 else "orange" if days_until_exp > 7 else "red"
+        # Determina o menor prazo
+        min_days = None
+        min_label = ""
+
+        if days_until_exp is not None and ssl_days is not None:
+            if days_until_exp < ssl_days:
+                min_days = days_until_exp
+                min_label = "Domínio"
+            else:
+                min_days = ssl_days
+                min_label = "SSL"
+        elif days_until_exp is not None:
+            min_days = days_until_exp
+            min_label = "Domínio"
+        elif ssl_days is not None:
+            min_days = ssl_days
+            min_label = "SSL"
+
+        if min_days is not None:
+            if min_days <= 7:
+                self.validity_card['content_frame'].config(bg='#f8d7da')  # Vermelho
+                self.validity_card['icon'].config(text='⚠', fg='#dc3545', bg='#f8d7da')
+                self.validity_card['value'].config(text=f'{min_days}', fg='#dc3545', bg='#f8d7da')
+                self.validity_card['detail'].config(text=f'dias ({min_label})\nCRÍTICO!', fg='#721c24', bg='#f8d7da')
+            elif min_days <= 30:
+                self.validity_card['content_frame'].config(bg='#fff3cd')  # Amarelo
+                self.validity_card['icon'].config(text='⏰', fg='#ffc107', bg='#fff3cd')
+                self.validity_card['value'].config(text=f'{min_days}', fg='#ffc107', bg='#fff3cd')
+                self.validity_card['detail'].config(text=f'dias ({min_label})\nAtenção', fg='#856404', bg='#fff3cd')
+            else:
+                self.validity_card['content_frame'].config(bg='#d4edda')  # Verde
+                self.validity_card['icon'].config(text='✓', fg='#28a745', bg='#d4edda')
+                self.validity_card['value'].config(text=f'{min_days}', fg='#28a745', bg='#d4edda')
+                self.validity_card['detail'].config(text=f'dias ({min_label})\nOK', fg='#155724', bg='#d4edda')
         else:
-            exp_text = "Domínio: N/A"
-            exp_color = "gray"
+            self.validity_card['content_frame'].config(bg='#e2e3e5')
+            self.validity_card['icon'].config(text='?', fg='#6c757d', bg='#e2e3e5')
+            self.validity_card['value'].config(text='N/A', fg='#6c757d', bg='#e2e3e5')
+            self.validity_card['detail'].config(text='Sem dados', fg='#383d41', bg='#e2e3e5')
 
-        if ssl_days is not None:
-            ssl_text = f"SSL: {ssl_days} dias"
-        else:
-            ssl_text = "SSL: N/A"
-
-        self.validity_card.config(
-            text=f"{exp_text}\n{ssl_text}",
-            foreground=exp_color
-        )
-
-        # Segurança
-        reputation = data.get('reputation_score', 0)
+        # === 3. SEGURANÇA ===
         vt_malicious = data.get('virustotal_malicious', 0)
         blacklist_count = data.get('blacklist_count', 0)
+        reputation = data.get('reputation_score', 0)
 
-        if vt_malicious > 0 or blacklist_count > 0:
-            sec_text = f"⚠️ Ameaças detectadas!\nVT: {vt_malicious} | BL: {blacklist_count}"
-            sec_color = "red"
+        total_threats = vt_malicious + blacklist_count
+
+        if total_threats > 0:
+            self.security_card['content_frame'].config(bg='#f8d7da')  # Vermelho
+            self.security_card['icon'].config(text='⚠', fg='#dc3545', bg='#f8d7da')
+            self.security_card['value'].config(text=f'{total_threats}', fg='#dc3545', bg='#f8d7da')
+            self.security_card['detail'].config(text='Ameaças\ndetectadas!', fg='#721c24', bg='#f8d7da')
         elif reputation < 0:
-            sec_text = f"⚠️ Reputação baixa\nScore: {reputation}"
-            sec_color = "orange"
+            self.security_card['content_frame'].config(bg='#fff3cd')  # Amarelo
+            self.security_card['icon'].config(text='⚡', fg='#ffc107', bg='#fff3cd')
+            self.security_card['value'].config(text=f'{reputation}', fg='#ffc107', bg='#fff3cd')
+            self.security_card['detail'].config(text='Reputação\nbaixa', fg='#856404', bg='#fff3cd')
         else:
-            sec_text = f"✅ Limpo\nScore: {reputation}"
-            sec_color = "green"
+            self.security_card['content_frame'].config(bg='#d4edda')  # Verde
+            self.security_card['icon'].config(text='🛡', fg='#28a745', bg='#d4edda')
+            self.security_card['value'].config(text='Limpo', fg='#28a745', bg='#d4edda')
+            self.security_card['detail'].config(text=f'Score: {reputation}', fg='#155724', bg='#d4edda')
 
-        self.security_card.config(text=sec_text, foreground=sec_color)
-
-        # SEO
+        # === 4. SEO ===
         da = data.get('domain_authority')
         pa = data.get('page_authority')
+        perf_score = data.get('performance_score')
 
-        if da or pa:
-            seo_text = f"DA: {da or 'N/A'}\nPA: {pa or 'N/A'}"
+        # Usa melhor métrica disponível
+        main_metric = da or pa or perf_score
+
+        if main_metric:
+            if main_metric >= 70:
+                bg_color = '#d4edda'
+                fg_color = '#28a745'
+                detail_color = '#155724'
+                icon = '★'
+                status_text = 'Excelente'
+            elif main_metric >= 50:
+                bg_color = '#fff3cd'
+                fg_color = '#ffc107'
+                detail_color = '#856404'
+                icon = '●'
+                status_text = 'Bom'
+            else:
+                bg_color = '#f8d7da'
+                fg_color = '#dc3545'
+                detail_color = '#721c24'
+                icon = '▼'
+                status_text = 'Precisa melhorar'
+
+            self.seo_card['content_frame'].config(bg=bg_color)
+            self.seo_card['icon'].config(text=icon, fg=fg_color, bg=bg_color)
+            self.seo_card['value'].config(text=f'{main_metric}', fg=fg_color, bg=bg_color)
+
+            label = 'DA' if da else 'PA' if pa else 'Perf'
+            self.seo_card['detail'].config(text=f'{label}: {status_text}', fg=detail_color, bg=bg_color)
         else:
-            seo_text = "Sem dados"
+            self.seo_card['content_frame'].config(bg='#e2e3e5')
+            self.seo_card['icon'].config(text='?', fg='#6c757d', bg='#e2e3e5')
+            self.seo_card['value'].config(text='N/A', fg='#6c757d', bg='#e2e3e5')
+            self.seo_card['detail'].config(text='Sem dados', fg='#383d41', bg='#e2e3e5')
 
-        self.seo_card.config(text=seo_text)
-
-        # Email Auth
+        # === 5. EMAIL AUTH ===
         spf_valid = data.get('spf_valid', 0)
         dmarc_policy = data.get('dmarc_policy')
         dkim_configured = data.get('dkim_configured', 0)
 
-        email_status = []
-        if spf_valid:
-            email_status.append("✅ SPF")
+        # Conta configurações
+        configured = sum([bool(spf_valid), bool(dmarc_policy), bool(dkim_configured)])
+
+        if configured == 3:
+            self.email_card['content_frame'].config(bg='#d4edda')  # Verde
+            self.email_card['icon'].config(text='✓', fg='#28a745', bg='#d4edda')
+            self.email_card['value'].config(text='3/3', fg='#28a745', bg='#d4edda')
+            self.email_card['detail'].config(text='Totalmente\nconfigurado', fg='#155724', bg='#d4edda')
+        elif configured >= 1:
+            self.email_card['content_frame'].config(bg='#fff3cd')  # Amarelo
+            self.email_card['icon'].config(text='⚠', fg='#ffc107', bg='#fff3cd')
+            self.email_card['value'].config(text=f'{configured}/3', fg='#ffc107', bg='#fff3cd')
+            self.email_card['detail'].config(text='Parcialmente\nconfigurado', fg='#856404', bg='#fff3cd')
         else:
-            email_status.append("❌ SPF")
+            self.email_card['content_frame'].config(bg='#f8d7da')  # Vermelho
+            self.email_card['icon'].config(text='✗', fg='#dc3545', bg='#f8d7da')
+            self.email_card['value'].config(text='0/3', fg='#dc3545', bg='#f8d7da')
+            self.email_card['detail'].config(text='Não\nconfigurado', fg='#721c24', bg='#f8d7da')
 
-        if dmarc_policy:
-            email_status.append(f"✅ DMARC ({dmarc_policy})")
+        # === 6. TECNOLOGIA ===
+        cms = data.get('cms_detected')
+        cloud = data.get('cloud_provider')
+
+        if cms:
+            self.tech_card['content_frame'].config(bg='#d1ecf1')  # Azul claro
+            self.tech_card['icon'].config(text='⚙', fg='#17a2b8', bg='#d1ecf1')
+
+            # Abrevia nome do CMS se muito longo
+            cms_short = cms if len(cms) <= 12 else cms[:9] + '...'
+            self.tech_card['value'].config(text=cms_short, fg='#17a2b8', bg='#d1ecf1')
+
+            detail_text = f'CMS'
+            if cloud:
+                detail_text += f'\n☁ {cloud}'
+            self.tech_card['detail'].config(text=detail_text, fg='#0c5460', bg='#d1ecf1')
         else:
-            email_status.append("❌ DMARC")
-
-        if dkim_configured:
-            email_status.append("✅ DKIM")
-        else:
-            email_status.append("❌ DKIM")
-
-        self.email_card.config(text="\n".join(email_status))
-
-        # Tecnologia
-        cms = data.get('cms_detected') or 'Nenhum'
-        server = data.get('server') or 'Desconhecido'
-        cloud = data.get('cloud_provider') or 'N/A'
-
-        tech_text = f"CMS: {cms}\nServidor: {server}\nCloud: {cloud}"
-        self.tech_card.config(text=tech_text)
+            self.tech_card['content_frame'].config(bg='#e2e3e5')
+            self.tech_card['icon'].config(text='?', fg='#6c757d', bg='#e2e3e5')
+            self.tech_card['value'].config(text='N/A', fg='#6c757d', bg='#e2e3e5')
+            detail = 'Sem CMS'
+            if cloud:
+                detail = f'☁ {cloud}'
+            self.tech_card['detail'].config(text=detail, fg='#383d41', bg='#e2e3e5')
 
     def update_whois_display(self, data):
         """Atualiza display WHOIS"""

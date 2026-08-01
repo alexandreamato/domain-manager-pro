@@ -75,7 +75,7 @@ class SEOTab:
 
         ttk.Label(filter_frame, text="Buscar:").pack(side=tk.LEFT, padx=(0, 5))
         self.search_var = tk.StringVar()
-        self.search_var.trace('w', lambda *args: self.filter_table())
+        self.search_var.trace_add('write', lambda *args: self.filter_table())
         search_entry = ttk.Entry(filter_frame, textvariable=self.search_var, width=30)
         search_entry.pack(side=tk.LEFT, padx=(0, 20))
 

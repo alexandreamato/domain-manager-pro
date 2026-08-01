@@ -1,5 +1,7 @@
 # 🌐 Domain Manager Pro
 
+> **⚠️ ARQUIVADO (ago/2026)** — Este projeto (v1, Python/Tkinter) foi substituído pela **v2**, um app nativo macOS em Tauri 2 (Rust + React), desenvolvido em `~/Developer/domain-manager-pro-v2`. Este repositório permanece apenas como referência histórica e como fonte da migração de dados (`data/domains.db`). Tag de arquivamento: `v1-archive`.
+
 Sistema completo de gerenciamento e monitoramento de domínios com interface gráfica moderna em Python.
 
 ![Python](https://img.shields.io/badge/Python-3.8%2B-blue)
